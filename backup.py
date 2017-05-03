@@ -5,6 +5,10 @@ import os
 import errno
 import shutil
 
+# TODO: Add 'active' field in meta, 'active' field equal elements of meta.files
+# TODO: Config file name format is YYYY-MM-DD-hh-mm-ss-SSS.json
+# TODO: Create test cases for user accounting and config
+
 class Backup:
 
     prefix = os.path.join(os.getcwd(), 'cfg')
@@ -48,6 +52,7 @@ class Backup:
     def sync_meta(self, content):
         self.write_file(self.get_meta_path(), json.dumps(content, sort_keys=True, indent=4, separators=(',', ': ')))
 
+    # TODO: add codes ...
     def restore(self, path, content):
         # if content is not null, save it
         # return load(path)

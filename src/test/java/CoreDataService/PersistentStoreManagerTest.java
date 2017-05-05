@@ -6,6 +6,7 @@ import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
 import java.lang.reflect.Constructor;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -34,21 +35,6 @@ public class PersistentStoreManagerTest
     {
         return new TestSuite( PersistentStoreManagerTest.class );
     }
-
-//    static Object createObject(String className) {
-//        Object object = null;
-//        try {
-//            Class classDefinition = Class.forName(className);
-//            object = classDefinition.newInstance();
-//        } catch (InstantiationException e) {
-//            System.out.println(e);
-//        } catch (IllegalAccessException e) {
-//            System.out.println(e);
-//        } catch (ClassNotFoundException e) {
-//            System.out.println(e);
-//        }
-//        return object;
-//    }
 
     static Object createObject(String className, Object... args) {
         Object object = null;
@@ -80,19 +66,15 @@ public class PersistentStoreManagerTest
      * Rigourous Test :-)
      */
     public void testSave() {
-        // TODO: associate the writer class by config file.
-//        PersistentStore writer0 = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore");
-
-        PersistentStore writer = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore", this.cwd);
-//        PersistentStore writer2 = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore", this.cwd, this.cwd);
-        if (writer == null) {
+        PersistentStore filePersistentStore = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore", this.cwd);
+        if (filePersistentStore == null) {
             fail();
         }
 
-        PersistentStoreManager mgr = new PersistentStoreManager("foo", /*new FilePersistentStore(this.cwd)*/ writer);
+        PersistentStoreManager mgr = new PersistentStoreManager("foo", /*new FilePersistentStore(this.cwd)*/ filePersistentStore);
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        int ret = mgr.dataChanged(value);
+        int ret = mgr.save(value);
 
         assertTrue( ret == 0);
 
@@ -109,36 +91,35 @@ public class PersistentStoreManagerTest
     }
 
     public void testRestore() {
-        // TODO: associate the writer class by config file.
-        PersistentStore writer = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore", this.cwd);
-        if (writer == null) {
+        PersistentStore filePersistentStore = (FilePersistentStore)createObject("CoreDataService.impl.FilePersistentStore", this.cwd);
+        if (filePersistentStore == null) {
             fail();
         }
 
-        PersistentStoreManager mgr = new PersistentStoreManager("foo", writer);
+        PersistentStoreManager mgr = new PersistentStoreManager("foo", filePersistentStore);
 
         ArrayList<byte[]> files = new ArrayList<byte[]>() {{
             add("{\"version\": \"v1\"}".getBytes());
             add("{\"version\": \"last\"}".getBytes());
         }};
 
-        //byte[] file1 = "{\"version\": 1}".getBytes();
-
         for (byte[] file : files) {
-            Integer ret = mgr.dataChanged(file);
+            Integer ret = mgr.save(file);
             assertTrue( ret == 0);
         }
-
-//        ret = mgr.dataChanged(file1);
-//        assertTrue( ret == 0);
 
         ArrayList<DocumentMeta> versionHistory = mgr.getVersionHistory();
 
         assert(versionHistory.size() == 2);
         assert(versionHistory.get(0).size == files.get(1).length);
 
-        byte[] output = mgr.requestRestore(versionHistory.get(1).id);
-        assertTrue(Arrays.equals(output, files.get(0)));
+        try {
+            byte[] output = mgr.restore(versionHistory.get(1).id);
+            assertTrue(Arrays.equals(output, files.get(0)));
+        } catch (NoSuchVersionException | NoSuchFileException e) {
+            System.out.println(e);
+            fail();
+        }
 
         String currentVerId = mgr.getCurrentVersionId();
         assertTrue(currentVerId.equals(versionHistory.get(1).id));

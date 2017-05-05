@@ -1,5 +1,7 @@
 package CoreDataService;
 
+import java.io.*;
+import java.nio.file.NoSuchFileException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -94,21 +96,104 @@ interface BackupObserver {
 }
 */
 
+class NoSuchVersionException extends RuntimeException {
+    public NoSuchVersionException(String s) {
+        super(s);
+    }
+}
+
+class BackupService {
+    private String packageName;
+    private PersistentStore persistentStore;
+    private VersionHistoryCache versionHistoryCache;
+
+    BackupService(String packageName, PersistentStore persistentStore) {
+        this.packageName = packageName;
+        this.persistentStore = persistentStore;
+        this.versionHistoryCache = new VersionHistoryCache();
+    }
+
+    public void dataChanged(String key) {
+        Map.Entry<byte[], Map<String, String>> data = persistentStore.load(key);
+
+        String[] parts = key.split("\\.");
+
+        parts[parts.length-1] = "backups";
+        String backupId = String.join(File.separator, parts) + "." + data.getValue().get("id");
+
+        int ret = persistentStore.save(backupId, data.getKey(), data.getValue());
+        assert(ret == 0); // TODO: re-throw except if error
+
+        {
+            Integer size = Integer.parseInt(data.getValue().getOrDefault("size", "-1"));
+            String fileUri = data.getValue().get("fileUri");
+
+            // TODO: the document meta should be obtained from options
+            DocumentMeta record = new DocumentMeta(data.getValue().get("id"), data.getValue().get("modified"), size, fileUri);
+
+            this.versionHistoryCache.add(record);
+
+            String versionHistoryJSON = this.versionHistoryCache.toString();
+
+            byte[] v = versionHistoryJSON.getBytes();
+
+            Map<String, String> versionHistoryCacheMeta = new HashMap<>();
+
+            Date now = Calendar.getInstance().getTime();
+            String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
+
+            versionHistoryCacheMeta.put("modified", timeStamp);
+            versionHistoryCacheMeta.put("fileExtension", ".json");
+
+            ret = this.persistentStore.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
+            assert(ret == 0); // TODO: re-throw except if error
+        }
+    }
+
+    public Map.Entry<byte[], Map<String, String>> find(String versionId)
+            throws NoSuchVersionException, NoSuchFileException {
+        DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
+
+        if (docMeta == null) {
+            throw new NoSuchVersionException(versionId);
+        }
+
+        Map.Entry<byte[], Map<String, String>> result = this.persistentStore.load(this.packageName + ".backups." + versionId);
+        if (result.getKey() == null) {
+            throw new NoSuchFileException("this.packageName + \".backups.\" + versionId");
+        }
+
+        return result;
+    }
+
+    public ArrayList<DocumentMeta> getAllVersion() {
+        return this.versionHistoryCache.getHistoryList();
+    }
+}
+
 public class PersistentStoreManager {
     private PersistentStore persistentStore;
     private String packageName;
 
-    private VersionHistoryCache versionHistoryCache;
+    private BackupService backupService;
+
     private DocumentMeta currentDoc;
 
     public PersistentStoreManager(String packageName, PersistentStore persistentStore) {
         this.persistentStore = persistentStore;
         this.packageName = packageName;
 
-        this.versionHistoryCache = new VersionHistoryCache();
         this.currentDoc = null;
+
         // TODO: load veersionHistoryCache from persistent storage
         // TODO: rebuild versionHistoryCache from persistent storage
+
+        this.backupService = new BackupService(packageName, persistentStore);
+    }
+
+    public void init() {
+        // TODO: load currentDoc
+        // TODO: load versionHistory
     }
 
     /**
@@ -118,11 +203,9 @@ public class PersistentStoreManager {
      */
     // TODO: accept string format content
     // TODO: accept json format content
-    public int dataChanged(byte[] content /*, BackupObserver observer*/) {
-
+    public int save(byte[] content /*, BackupObserver observer*/) {
         int ret;
 
-        // TODO: get current time and put into options
         Map<String, String> meta = new HashMap<>();
 
         Date now = Calendar.getInstance().getTime();
@@ -130,14 +213,9 @@ public class PersistentStoreManager {
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
         String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
 
-        meta.put("id", id);
+        meta.put("id", id); // TOD: id is timeStamp, it will change each saving operation. NOT id.
         meta.put("modified", timeStamp);
         meta.put("fileExtension", ".json");
-
-        {
-            ret = this.persistentStore.save(this.packageName + ".backups." + id, content, meta);
-            // TODO: check return value
-        }
 
         {
             ret = this.persistentStore.save(this.packageName + ".current", content, meta);
@@ -148,30 +226,8 @@ public class PersistentStoreManager {
             // TODO: check return value, if error case
         }
 
-        {
-            Integer size = Integer.parseInt(meta.getOrDefault("size", "-1"));
-            String fileUri = meta.get("fileUri");
+        this.backupService.dataChanged(this.packageName + ".current");
 
-            // TODO: the document meta should be obtained from options
-            DocumentMeta record = new DocumentMeta(id, timeStamp, size, fileUri);
-
-            this.versionHistoryCache.add(record);
-
-            String versionHistoryJSON = this.versionHistoryCache.toString();
-
-            byte[] v = versionHistoryJSON.getBytes();
-
-            Map<String, String> versionHistoryCacheMeta = new HashMap<>();
-            versionHistoryCacheMeta.put("modified", timeStamp);
-            versionHistoryCacheMeta.put("fileExtension", ".json");
-
-            ret = this.persistentStore.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
-        }
-
-
-        // backService.save(db = <packageName>, col = 'backup',  doc = <versionId>,      content)
-        // backService.save(db = <packageName>, col = 'current', doc = 'current',        content)
-        // backService.save(db = <packageName>, col = 'current', doc = 'versionHistory', meta)
         return ret;
     }
 
@@ -181,26 +237,19 @@ public class PersistentStoreManager {
      * @param observer, null means sync-call
      * @return
      */
-    public byte[] requestRestore(String versionId /*, BackupObserver observer*/ ) {
-        DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
+    public byte[] restore(String versionId /*, BackupObserver observer*/ )
+            throws NoSuchVersionException, NoSuchFileException {
+        Map.Entry<byte[], Map<String, String>> result = this.backupService.find(versionId);
 
-        if (docMeta == null) {
-            return null;
-        }
-
-        Map.Entry<byte[], Map<String, String>> result = this.persistentStore.load(this.packageName + ".backups." + versionId);
-
-        if (result.getValue() != null) {
-            Integer ret = this.persistentStore.save(this.packageName + ".current", result.getKey(), result.getValue());
-            this.currentDoc = DocumentMeta.create(result.getValue());
-        }
+        Integer ret = this.persistentStore.save(this.packageName + ".current", result.getKey(), result.getValue());
+        this.currentDoc = DocumentMeta.create(result.getValue());
 
         return result.getKey();
     }
 
     // TODO: return versionHistoryCache plus self information, like current used config, packetname ... etc
     public ArrayList<DocumentMeta> getVersionHistory() {
-        return this.versionHistoryCache.getHistoryList();
+        return this.backupService.getAllVersion();
     }
 
     public String getCurrentVersionId() {

@@ -15,7 +15,7 @@ class DocumentMeta {
     public String description;
     public String fileUrl;
 
-    Map<String, String> attributes;
+//    Map<String, String> attributes;
 
 //    public DocumentMeta(String id, String modified, String modifiedBy, Integer size, String description) {
 //        this.id = id;
@@ -46,7 +46,7 @@ class DocumentMeta {
         //this.description = "";
         this.fileUrl = fileUrl;
 
-        this.attributes = new HashMap<>();
+//        this.attributes = new HashMap<>();
     }
 
 //    public DocumentMeta setModifiedBy(String modifiedBy) {

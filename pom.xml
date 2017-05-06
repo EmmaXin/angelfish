@@ -35,6 +35,7 @@
                         <phase>validate</phase>
                         <configuration>
                             <configLocation>onos/checkstyle.xml</configLocation>
+                            <suppressionsLocation>onos/suppressions.xml</suppressionsLocation>
                             <encoding>UTF-8</encoding>
                             <consoleOutput>true</consoleOutput>
                             <failsOnError>true</failsOnError>

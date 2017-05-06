@@ -1,6 +1,6 @@
 package CoreDataService;
 
-import CoreDataService.impl.FilePersistentStore;
+import CoreDataService.impl.FilePersistentStoreDriver;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * Unit test for simple App.
  */
-public class FilePersistentStoreTest
+public class FilePersistentStoreDriverDriverTest
     extends TestCase
 {
     final static String cwd = System.getProperty("user.dir");
@@ -22,7 +22,7 @@ public class FilePersistentStoreTest
      *
      * @param testName name of the test case
      */
-    public FilePersistentStoreTest(String testName )
+    public FilePersistentStoreDriverDriverTest(String testName )
     {
         super( testName );
     }
@@ -32,31 +32,31 @@ public class FilePersistentStoreTest
      */
     public static Test suite()
     {
-        return new TestSuite( FilePersistentStoreTest.class );
+        return new TestSuite( FilePersistentStoreDriverDriverTest.class );
     }
 
     /**
      * Rigourous Test :-)
      */
 //    public void testCheckValidPath() {
-//        assertTrue(FilePersistentStore.isValidPath("x:\\") == true);
-//        assertTrue(FilePersistentStore.isValidPath("/x") == true);
-//        assertTrue(FilePersistentStore.isValidPath("X:\\abc\\def\\123") == true);
-//        assertTrue(FilePersistentStore.isValidPath("X:\\abc\\def\\123.xml") == true);
-//        assertTrue(FilePersistentStore.isValidPath("X:\\abc\\def\\123.json") == true);
-//        assertTrue(FilePersistentStore.isValidPath("/x/abc/def/123") == true);
-//        assertTrue(FilePersistentStore.isValidPath("/x/abc/def/123.xml") == true);
-//        assertTrue(FilePersistentStore.isValidPath("/x/abc/def/123.json") == true);
-//        assertTrue(FilePersistentStore.isValidPath("/x/abc/def/123$meta.json") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("x:\\") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("X:\\abc\\def\\123") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("X:\\abc\\def\\123.xml") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("X:\\abc\\def\\123.json") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x/abc/def/123") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x/abc/def/123.xml") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x/abc/def/123.json") == true);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x/abc/def/123$meta.json") == true);
 //
-//        assertTrue(FilePersistentStore.isValidPath("//") == false);
-//        assertTrue(FilePersistentStore.isValidPath("/x/abc/*") == false);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("//") == false);
+//        assertTrue(FilePersistentStoreDriver.isValidPath("/x/abc/*") == false);
 //    }
 
     // TODO: ensure the location of output file, remove it for each test
 
     public void testSaveFile() {
-        FilePersistentStore service = new FilePersistentStore(this.cwd);
+        FilePersistentStoreDriver service = new FilePersistentStoreDriver(this.cwd);
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
         Map<String, String> meta = new HashMap<String, String>();
@@ -74,7 +74,7 @@ public class FilePersistentStoreTest
     }
 
     public void testLoadNonExistFile() {
-        FilePersistentStore service = new FilePersistentStore(this.cwd);
+        FilePersistentStoreDriver service = new FilePersistentStoreDriver(this.cwd);
 
         Map.Entry<byte[], Map<String, String>> result = service.load("network.nonExist");
 

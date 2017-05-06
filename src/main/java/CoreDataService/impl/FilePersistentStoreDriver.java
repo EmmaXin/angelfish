@@ -1,44 +1,63 @@
 package CoreDataService.impl;
 
-import CoreDataService.PersistentStore;
+import CoreDataService.PersistentStoreDriver;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.xml.parsers.*;
-import javax.xml.transform.*;
-import javax.xml.transform.dom.*;
-import javax.xml.transform.stream.*;
-import org.xml.sax.*;
-import org.w3c.dom.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.FactoryConfigurationError;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
-public class FilePersistentStore implements PersistentStore {
-    private static String extension = ".xml";
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
+import org.xml.sax.SAXException;
+
+public class FilePersistentStoreDriver implements PersistentStoreDriver {
     private String baseuri;
+    private static String extension;
 
-    public FilePersistentStore(String baseuri) {
+    static {
+        extension = ".xml";
+    }
+
+    public FilePersistentStoreDriver(String baseuri) {
         this.baseuri = baseuri;
     }
 
-    Document serialize(Document dom, Map<String, String> options) {
+    private Document serialize(Document dom, Map<String, String> options) {
 
-        /**
-         * <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-         * <!DOCTYPE roles SYSTEM "roles.dtd">
-         * <doc>
-         *   <modified>role1-data</modified>
-         *   <modifiedBy>role2-data</modifiedBy>
-         *   <size>role3-data</size>
-         *   <content>role4-data</content>
-         *   <description>role4-data</description>
-         * </doc>
-         */
+        //
+        // <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        // <!DOCTYPE roles SYSTEM "roles.dtd">
+        // <doc>
+        //   <modified>role1-data</modified>
+        //   <modifiedBy>role2-data</modifiedBy>
+        //   <size>role3-data</size>
+        //   <content>role4-data</content>
+        //   <description>role4-data</description>
+        // </doc>
+        //
 
         // create the root element
         Element rootEle = dom.createElement("doc");
@@ -56,7 +75,7 @@ public class FilePersistentStore implements PersistentStore {
         return dom;
     }
 
-    Map<String, String> deserialize(Document dom) {
+    private Map<String, String> deserialize(Document dom) {
         Map<String, String> result = new HashMap<String, String>();
 
         Element rootEle = dom.getDocumentElement();
@@ -76,7 +95,7 @@ public class FilePersistentStore implements PersistentStore {
     }
 
     // TODO: write 2 file, one is original file, another is meta file
-    int writeXmlFile(String path, Document dom) {
+    private int writeXmlFile(String path, Document dom) {
         try {
             Transformer tr = TransformerFactory.newInstance().newTransformer();
             tr.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -98,18 +117,18 @@ public class FilePersistentStore implements PersistentStore {
         return 0;
     }
 
-    public static String bytesToHex(byte[] in) {
-        final StringBuilder builder = new StringBuilder();
-        for(byte b : in) {
-            builder.append(String.format("%02x", b));
-        }
-        return builder.toString();
-    }
-
-    static Path getPath(String db, String col, String doc) {
-        return Paths.get(db, col, doc + ".xml");
-    }
-
+//    public static String bytesToHex(byte[] in) {
+//        final StringBuilder builder = new StringBuilder();
+//        for (byte b : in) {
+//            builder.append(String.format("%02x", b));
+//        }
+//        return builder.toString();
+//    }
+//
+//    static Path getPath(String db, String col, String doc) {
+//        return Paths.get(db, col, doc + ".xml");
+//    }
+//
 //    public static boolean isValidPath(String uri) {
 //        try {
 //            Path path = Paths.get(uri);
@@ -124,7 +143,7 @@ public class FilePersistentStore implements PersistentStore {
 //        return true;
 //    }
 
-    Path keyToFilePath(String key) {
+    private Path keyToFilePath(String key) {
         String[] parts = key.split("\\.");
 
         String path = String.join(File.separator, parts);
@@ -132,8 +151,8 @@ public class FilePersistentStore implements PersistentStore {
         return Paths.get(this.baseuri, path);
     }
 
-    int writeFile(String path, byte[] value) {
-        try{
+    private int writeFile(String path, byte[] value) {
+        try {
             OutputStream outputStream = new FileOutputStream(path);
             outputStream.write(value);
         } catch (IOException ex) {
@@ -143,7 +162,7 @@ public class FilePersistentStore implements PersistentStore {
         return 0;
     }
 
-    static byte[] readFile(String path) {
+    private static byte[] readFile(String path) {
         try {
             return Files.readAllBytes(Paths.get(path));
         } catch (IOException ex) {
@@ -151,7 +170,7 @@ public class FilePersistentStore implements PersistentStore {
         }
     }
 
-    int writeMetaFile(String path, Map<String, String> meta) {
+    private int writeMetaFile(String path, Map<String, String> meta) {
         DocumentBuilderFactory dbf;
         try {
             dbf = DocumentBuilderFactory.newInstance();
@@ -159,20 +178,20 @@ public class FilePersistentStore implements PersistentStore {
             return -1; // TODO: instead hard code by enum value
         }
 
-        DocumentBuilder _db;
+        DocumentBuilder documentBuilder;
         try {
-            _db = dbf.newDocumentBuilder();
+            documentBuilder = dbf.newDocumentBuilder();
         } catch (ParserConfigurationException pce) {
             return -2; // TODO: instead hard code by enum value
         }
 
-        Document dom = _db.newDocument();
+        Document dom = documentBuilder.newDocument();
 
         if (dom == null) {
             return -3; // TODO: instead hard code by enum value
         }
 
-        serialize(dom, meta);
+        dom = serialize(dom, meta);
 
         int ret = writeXmlFile(path, dom);
 
@@ -189,10 +208,10 @@ public class FilePersistentStore implements PersistentStore {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         try {
             // use the factory to take an instance of the document builder
-            DocumentBuilder _db = dbf.newDocumentBuilder();
+            DocumentBuilder documentBuilder = dbf.newDocumentBuilder();
             // parse using the builder to get the DOM mapping of the
             // XML file
-            dom = _db.parse(path);
+            dom = documentBuilder.parse(path);
 
             return deserialize(dom);
 
@@ -237,7 +256,7 @@ public class FilePersistentStore implements PersistentStore {
         meta.put("fileUrl", path.toString() + fileExtension);
         meta.put("size", String.valueOf(value.length));
 
-        if (writeMetaFile(path.toString() + ".meta" + FilePersistentStore.extension, meta) != 0) {
+        if (writeMetaFile(path.toString() + ".meta" + FilePersistentStoreDriver.extension, meta) != 0) {
             return -6; // TODO: instead hard code by enum value, and save log if something wrong
         }
 
@@ -249,47 +268,47 @@ public class FilePersistentStore implements PersistentStore {
 
         Path path = keyToFilePath(key);
 
-        Map<String, String> meta = loadXmlFile(path.toString() + ".meta" + FilePersistentStore.extension);
+        Map<String, String> meta = loadXmlFile(path.toString() + ".meta" + FilePersistentStoreDriver.extension);
 
         String s = meta.get("fileUrl");
         if (s != null) {
-            value = FilePersistentStore.readFile(s);
+            value = FilePersistentStoreDriver.readFile(s);
         }
 
         return new AbstractMap.SimpleEntry<byte[], Map<String, String>>(value, meta);
     }
 
-    // TODO: provide async interface
-    public int save(String db, String col, String doc, byte[] value, Map<String, String> options) {
-        Document dom;
-
-        Path path = getPath(db, col, doc);
-        // TODO: ensure the directories had created before access it.
-
-        // instance of a DocumentBuilderFactory
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        try {
-            // use factory to get an instance of document builder
-            DocumentBuilder _db = dbf.newDocumentBuilder();
-
-            // create instance of DOM
-            dom = _db.newDocument();
-
-            // TODO: Save content in external location not in `meta` file. Rename current file as <name>$meta.json
-            options.put("content", bytesToHex(value));
-            options.put("size", String.valueOf(value.length));
-            // TODO: put encode field as 'hex'
-
-            serialize(dom, options);
-
-            writeXmlFile(path.toString(), dom);
-
-            // TODO: which operation will throw this exception, or miss others
-        } catch (ParserConfigurationException pce) {
-            // TODO: use return code instead print out to console.
-            System.out.println("UsersXML: Error trying to instantiate DocumentBuilder " + pce);
-        }
-
-        return 0;
-    }
+//    // TODO: provide async interface
+//    public int save(String db, String col, String doc, byte[] value, Map<String, String> options) {
+//        Document dom;
+//
+//        Path path = getPath(db, col, doc);
+//        // TODO: ensure the directories had created before access it.
+//
+//        // instance of a DocumentBuilderFactory
+//        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+//        try {
+//            // use factory to get an instance of document builder
+//            DocumentBuilder _db = dbf.newDocumentBuilder();
+//
+//            // create instance of DOM
+//            dom = _db.newDocument();
+//
+//            // TODO: Save content in external location not in `meta` file. Rename current file as <name>$meta.json
+//            options.put("content", bytesToHex(value));
+//            options.put("size", String.valueOf(value.length));
+//            // TODO: put encode field as 'hex'
+//
+//            serialize(dom, options);
+//
+//            writeXmlFile(path.toString(), dom);
+//
+//            // TODO: which operation will throw this exception, or miss others
+//        } catch (ParserConfigurationException pce) {
+//            // TODO: use return code instead print out to console.
+//            System.out.println("UsersXML: Error trying to instantiate DocumentBuilder " + pce);
+//        }
+//
+//        return 0;
+//    }
 }

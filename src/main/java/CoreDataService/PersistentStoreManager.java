@@ -1,6 +1,6 @@
 package CoreDataService;
 
-import java.io.*;
+import java.io.File;
 import java.nio.file.NoSuchFileException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -61,7 +61,7 @@ class VersionHistoryCache {
 
     public DocumentMeta find(String docId) {
         for (DocumentMeta docMeta : this.versionHistory) {
-            if (docMeta.id.equals(docId)) {
+            if (docMeta.getId().equals(docId)) {
                 return docMeta;
             }
         }
@@ -81,7 +81,7 @@ class VersionHistoryCache {
                 s += ",";
             }
 
-            s += entry.toJSONString() + "\n";
+            s += entry.toJsonString() + "\n";
         }
 
         s += "]";
@@ -104,24 +104,25 @@ class NoSuchVersionException extends RuntimeException {
 
 class BackupService {
     private String packageName;
-    private PersistentStore persistentStore;
+    private PersistentStoreDriver persistentStoreDriver;
     private VersionHistoryCache versionHistoryCache;
 
-    BackupService(String packageName, PersistentStore persistentStore) {
+    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
         this.packageName = packageName;
-        this.persistentStore = persistentStore;
+        this.persistentStoreDriver = persistentStoreDriver;
         this.versionHistoryCache = new VersionHistoryCache();
     }
 
+    // TODO: using async interface
     public void dataChanged(String key) {
-        Map.Entry<byte[], Map<String, String>> data = persistentStore.load(key);
+        Map.Entry<byte[], Map<String, String>> data = persistentStoreDriver.load(key);
 
         String[] parts = key.split("\\.");
 
-        parts[parts.length-1] = "backups";
+        parts[parts.length - 1] = "backups";
         String backupId = String.join(File.separator, parts) + "." + data.getValue().get("id");
 
-        int ret = persistentStore.save(backupId, data.getKey(), data.getValue());
+        int ret = persistentStoreDriver.save(backupId, data.getKey(), data.getValue());
         assert(ret == 0); // TODO: re-throw except if error
 
         {
@@ -133,9 +134,9 @@ class BackupService {
 
             this.versionHistoryCache.add(record);
 
-            String versionHistoryJSON = this.versionHistoryCache.toString();
+            String versionHistoryJson = this.versionHistoryCache.toString();
 
-            byte[] v = versionHistoryJSON.getBytes();
+            byte[] v = versionHistoryJson.getBytes();
 
             Map<String, String> versionHistoryCacheMeta = new HashMap<>();
 
@@ -145,11 +146,12 @@ class BackupService {
             versionHistoryCacheMeta.put("modified", timeStamp);
             versionHistoryCacheMeta.put("fileExtension", ".json");
 
-            ret = this.persistentStore.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
+            ret = this.persistentStoreDriver.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
             assert(ret == 0); // TODO: re-throw except if error
         }
     }
 
+    // TODO: using async interface
     public Map.Entry<byte[], Map<String, String>> find(String versionId)
             throws NoSuchVersionException, NoSuchFileException {
         DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
@@ -158,7 +160,7 @@ class BackupService {
             throw new NoSuchVersionException(versionId);
         }
 
-        Map.Entry<byte[], Map<String, String>> result = this.persistentStore.load(this.packageName + ".backups." + versionId);
+        Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".backups." + versionId);
         if (result.getKey() == null) {
             throw new NoSuchFileException("this.packageName + \".backups.\" + versionId");
         }
@@ -172,15 +174,15 @@ class BackupService {
 }
 
 public class PersistentStoreManager {
-    private PersistentStore persistentStore;
+    private PersistentStoreDriver persistentStoreDriver;
     private String packageName;
 
     private BackupService backupService;
 
     private DocumentMeta currentDoc;
 
-    public PersistentStoreManager(String packageName, PersistentStore persistentStore) {
-        this.persistentStore = persistentStore;
+    public PersistentStoreManager(String packageName, PersistentStoreDriver persistentStoreDriver) {
+        this.persistentStoreDriver = persistentStoreDriver;
         this.packageName = packageName;
 
         this.currentDoc = null;
@@ -188,7 +190,7 @@ public class PersistentStoreManager {
         // TODO: load veersionHistoryCache from persistent storage
         // TODO: rebuild versionHistoryCache from persistent storage
 
-        this.backupService = new BackupService(packageName, persistentStore);
+        this.backupService = new BackupService(packageName, persistentStoreDriver);
     }
 
     public void init() {
@@ -218,7 +220,7 @@ public class PersistentStoreManager {
         meta.put("fileExtension", ".json");
 
         {
-            ret = this.persistentStore.save(this.packageName + ".current", content, meta);
+            ret = this.persistentStoreDriver.save(this.packageName + ".current", content, meta);
             if (ret == 0) {
                 this.currentDoc = DocumentMeta.create(meta);
             }
@@ -237,11 +239,11 @@ public class PersistentStoreManager {
      * @param observer, null means sync-call
      * @return
      */
-    public byte[] restore(String versionId /*, BackupObserver observer*/ )
+    public byte[] restore(String versionId /*, BackupObserver observer*/)
             throws NoSuchVersionException, NoSuchFileException {
         Map.Entry<byte[], Map<String, String>> result = this.backupService.find(versionId);
 
-        Integer ret = this.persistentStore.save(this.packageName + ".current", result.getKey(), result.getValue());
+        Integer ret = this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());
         this.currentDoc = DocumentMeta.create(result.getValue());
 
         return result.getKey();
@@ -257,7 +259,7 @@ public class PersistentStoreManager {
             return null;
         }
 
-        return this.currentDoc.id;
+        return this.currentDoc.getId();
     }
 
     public byte[] getCurrentVersionContent() {
@@ -265,7 +267,7 @@ public class PersistentStoreManager {
             return null;
         }
 
-        Map.Entry<byte[], Map<String, String>> result = this.persistentStore.load(this.packageName + ".current");
+        Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".current");
         return result.getKey();
     }
 }

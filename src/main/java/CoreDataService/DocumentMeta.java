@@ -8,14 +8,14 @@ class DocumentMeta {
 
     // TODO: set priavte level for all data member
     // TODO: create a `getAttribute(name)` function to access all data member
-    public String id;
-    public String modified;
-    public String modifiedBy;
-    public Integer size;
-    public String description;
-    public String fileUrl;
+    private String id;
+    private String modified;
+    private String modifiedBy;
+    private Integer size;
+    private String description;
+    private String fileUrl;
 
-//    Map<String, String> attributes;
+//    Map<String, String> properties;
 
 //    public DocumentMeta(String id, String modified, String modifiedBy, Integer size, String description) {
 //        this.id = id;
@@ -59,7 +59,15 @@ class DocumentMeta {
 //        return this;
 //    }
 
-    public String toJSONString() {
+    public String getId() {
+        return this.id;
+    }
+
+    public Integer getSize() {
+        return this.size;
+    }
+
+    public String toJsonString() {
         return "{\n" +
                 "  \"id\":" + "\"" + this.id + "\",\n" +
                 "  \"modified\":" + "\"" + this.modified + "\",\n" +

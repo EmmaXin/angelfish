@@ -1,7 +1,10 @@
 package com.accton.common.store;
 
+import javax.print.Doc;
 import java.io.File;
 import java.nio.file.NoSuchFileException;
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -107,10 +110,18 @@ class BackupService {
     private PersistentStoreDriver persistentStoreDriver;
     private VersionHistoryCache versionHistoryCache;
 
-    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
+    private long autoSaveIntervalMilliSeconds;
+
+    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver, long autoSaveIntervalMilliSeconds) {
         this.packageName = packageName;
         this.persistentStoreDriver = persistentStoreDriver;
         this.versionHistoryCache = new VersionHistoryCache();
+
+        this.autoSaveIntervalMilliSeconds = autoSaveIntervalMilliSeconds;
+    }
+
+    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
+        this(packageName, persistentStoreDriver, 10 * 60 * 1000);
     }
 
     // TODO: using async interface
@@ -130,9 +141,9 @@ class BackupService {
             String fileUri = data.getValue().get("fileUri");
 
             // TODO: the document meta should be obtained from options
-            DocumentMeta record = new DocumentMeta(data.getValue().get("id"), data.getValue().get("modified"), size, fileUri);
+            DocumentMeta documentMeta = DocumentMeta.create(data.getValue());
 
-            this.versionHistoryCache.add(record);
+            this.versionHistoryCache.add(documentMeta);
 
             String versionHistoryJson = this.versionHistoryCache.toString();
 
@@ -168,8 +179,54 @@ class BackupService {
         return result;
     }
 
+    // TODO: Change the return value to Map<String, DocumentMeta[]>
     public ArrayList<DocumentMeta> getAllVersions() {
         return this.versionHistoryCache.getHistoryList();
+    }
+
+    // TODO: Add getKeys() : string[]
+
+    public DocumentMeta[] getAllVersions(String key) {
+        ArrayList<DocumentMeta> allVersions  = this.versionHistoryCache.getHistoryList();
+        ArrayList<DocumentMeta> list = new ArrayList<>();
+
+        Date lastSaveDate = null;
+
+        for (ListIterator iterator = allVersions.listIterator(allVersions.size()); iterator.hasPrevious();) {
+            DocumentMeta doc = (DocumentMeta) iterator.previous();
+
+            if (key.equals(doc.getKey())) {
+                try {
+                    Date current = BackupService.getDocumentModifiedDate(doc);
+
+                    if (lastSaveDate == null) {
+                        list.add(0, doc);
+                        lastSaveDate = current;
+                    } else {
+                        long diffMillis = current.getTime() - lastSaveDate.getTime();
+                        if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
+                            list.add(0, doc);
+                            lastSaveDate = current;
+                        } else {
+                            list.remove(0);
+                            list.add(0, doc);
+                        }
+                    }
+                } catch (ParseException e) {
+                    // TODO: log bad record
+                }
+            }
+        }
+
+        return list.toArray(new DocumentMeta[0]);
+    }
+
+    static Date getDocumentModifiedDate(DocumentMeta documentMeta) throws ParseException {
+        String format = documentMeta.getModifiedFormat();
+        String modified = documentMeta.getModified();
+
+        DateFormat dateFormat = new SimpleDateFormat(format);
+        return dateFormat.parse(modified);
     }
 }
 
@@ -216,6 +273,7 @@ public class PersistentStoreManager {
         String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
 
         meta.put("id", id); // TOD: id is timeStamp, it will change each saving operation. NOT id.
+        meta.put("key", this.packageName + ".current");
         meta.put("modified", timeStamp);
         meta.put("fileExtension", ".json");
 
@@ -252,6 +310,10 @@ public class PersistentStoreManager {
     // TODO: return versionHistoryCache plus self information, like current used config, packetname ... etc
     public ArrayList<DocumentMeta> getAllVersions() {
         return this.backupService.getAllVersions();
+    }
+
+    public DocumentMeta[] getAllVersions(String key) {
+        return this.backupService.getAllVersions(key);
     }
 
     public String getCurrentVersionId() {

@@ -1,4 +1,4 @@
-package CoreDataService;
+package com.accton.common.store;
 
 import java.io.File;
 import java.nio.file.NoSuchFileException;
@@ -168,7 +168,7 @@ class BackupService {
         return result;
     }
 
-    public ArrayList<DocumentMeta> getAllVersion() {
+    public ArrayList<DocumentMeta> getAllVersions() {
         return this.versionHistoryCache.getHistoryList();
     }
 }
@@ -250,8 +250,8 @@ public class PersistentStoreManager {
     }
 
     // TODO: return versionHistoryCache plus self information, like current used config, packetname ... etc
-    public ArrayList<DocumentMeta> getVersionHistory() {
-        return this.backupService.getAllVersion();
+    public ArrayList<DocumentMeta> getAllVersions() {
+        return this.backupService.getAllVersions();
     }
 
     public String getCurrentVersionId() {

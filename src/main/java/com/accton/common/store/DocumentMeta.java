@@ -1,6 +1,5 @@
-package CoreDataService;
+package com.accton.common.store;
 
-import java.util.HashMap;
 import java.util.Map;
 
 class DocumentMeta {

@@ -256,35 +256,18 @@ public class PersistentStoreManager {
     }
 
     /**
-     * Call to save data
+     * Call to save data.
      * @param content
-     * @param observer, null means sync-call
      */
     // TODO: accept string format content
     // TODO: accept json format content
-    public int save(byte[] content /*, BackupObserver observer*/) {
-        int ret;
-
-        Map<String, String> meta = new HashMap<>();
+    public int save(byte[] content) {
+        int ret = 0;
 
         Date now = Calendar.getInstance().getTime();
 
-        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
-        String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
-
-        meta.put("id", id); // TOD: id is timeStamp, it will change each saving operation. NOT id.
-        meta.put("key", this.packageName + ".current");
-        meta.put("modified", timeStamp);
-        meta.put("fileExtension", ".json");
-
-        {
-            ret = this.persistentStoreDriver.save(this.packageName + ".current", content, meta);
-            if (ret == 0) {
-                this.currentDoc = DocumentMeta.create(meta);
-            }
-
-            // TODO: check return value, if error case
-        }
+        Map<String, String> meta = save(this.packageName + ".current", content, now, this.persistentStoreDriver);
+        this.currentDoc = DocumentMeta.create(meta);
 
         this.backupService.dataChanged(this.packageName + ".current");
 
@@ -331,5 +314,22 @@ public class PersistentStoreManager {
 
         Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".current");
         return result.getKey();
+    }
+
+    public static Map<String, String> save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver) {
+        Map<String, String> meta = new HashMap<>();
+
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
+        String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
+
+        meta.put("id", id); // TOD: id is timeStamp, it will change each saving operation. NOT id.
+        meta.put("key", key);
+        meta.put("modified", timeStamp);
+        meta.put("fileExtension", ".json");
+
+        persistentStoreDriver.save(/*"test" + ".current"*/ key, content, meta);
+        // TODO: check return value, if error case
+
+        return meta;
     }
 }

@@ -8,7 +8,9 @@ class DocumentMeta {
     // TODO: set priavte level for all data member
     // TODO: create a `getAttribute(name)` function to access all data member
     private String id;
+    private String key;
     private String modified;
+    private String modifiedFormat;
     private String modifiedBy;
     private Integer size;
     private String description;
@@ -27,22 +29,21 @@ class DocumentMeta {
     public static DocumentMeta create(Map<String, String> attrs) {
         DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
 
-        docMeta.id = attrs.getOrDefault("id", "");
-        docMeta.modified = attrs.getOrDefault("modified", "");
-        docMeta.modifiedBy = attrs.getOrDefault("modifiedBy", "");
-        docMeta.size = Integer.parseInt(attrs.getOrDefault("size", "-1"));
-        docMeta.description = attrs.getOrDefault("description", "");
-        docMeta.fileUrl = attrs.getOrDefault("fileUrl", "");
+        for (Map.Entry<String, String> entry : attrs.entrySet()) {
+            docMeta.set(entry.getKey(), entry.getValue());
+        }
 
         return docMeta;
     }
 
     public DocumentMeta(String id, String modified, Integer size, String fileUrl) {
         this.id = id;
+        this.key = "";
         this.modified = modified;
-        //this.modifiedBy = "";
+        this.modifiedFormat = "yyyy-MM-dd HH:mm:ss.SSS";
+        this.modifiedBy = "";
         this.size = size;
-        //this.description = "";
+        this.description = "";
         this.fileUrl = fileUrl;
 
 //        this.attributes = new HashMap<>();
@@ -62,8 +63,62 @@ class DocumentMeta {
         return this.id;
     }
 
+    public String getKey() {
+        return this.key;
+    }
+
     public Integer getSize() {
         return this.size;
+    }
+
+    public String getModified() { return this.modified; }
+
+    public String getModifiedFormat() { return this.modifiedFormat; }
+
+    public String value(String key) {
+        if (key.equals("modified")) {
+            return this.modified;
+        }
+
+        return null;
+    }
+
+    public DocumentMeta set(String key, String value) {
+        switch (key) {
+            case "id":
+                this.id = value;
+                break;
+
+            case "key":
+                this.key = value;
+                break;
+
+            case "modified":
+                this.modified = value;
+                break;
+
+            case "modifiedFormat":
+                this.modifiedFormat = value;
+                break;
+
+            case "modifiedBy":
+                this.modifiedBy = value;
+                break;
+
+            case "size":
+                this.size = Integer.parseInt(value);
+                break;
+
+            case "description":
+                this.description = value;
+                break;
+
+            case "fileUrl":
+                this.fileUrl = value;
+                break;
+        }
+
+        return this;
     }
 
     public String toJsonString() {

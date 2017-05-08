@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,7 +46,7 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
         this.baseuri = baseuri;
     }
 
-    private Document serialize(Document dom, Map<String, String> options) {
+    private void serialize(Document dom, Map<String, String> options) {
 
         //
         // <?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -71,8 +72,6 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
             e.appendChild(dom.createTextNode(value));
             rootEle.appendChild(e);
         }
-
-        return dom;
     }
 
     private Map<String, String> deserialize(Document dom) {
@@ -94,56 +93,8 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
         return result;
     }
 
-    // TODO: write 2 file, one is original file, another is meta file
-    private int writeXmlFile(String path, Document dom) {
-        try {
-            Transformer tr = TransformerFactory.newInstance().newTransformer();
-            tr.setOutputProperty(OutputKeys.INDENT, "yes");
-            tr.setOutputProperty(OutputKeys.METHOD, "xml");
-            tr.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-            // TODO: it should be able to support dtd file
-//            tr.setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, "roles.dtd");
-            tr.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
-
-            tr.transform(new DOMSource(dom),
-                    new StreamResult(new FileOutputStream(path)));
-
-        } catch (TransformerException te) {
-            System.out.println(te.getMessage());
-        } catch (IOException ioe) {
-            System.out.println(ioe.getMessage());
-        }
-
-        return 0;
-    }
-
-//    public static String bytesToHex(byte[] in) {
-//        final StringBuilder builder = new StringBuilder();
-//        for (byte b : in) {
-//            builder.append(String.format("%02x", b));
-//        }
-//        return builder.toString();
-//    }
-//
-//    static Path getPath(String db, String col, String doc) {
-//        return Paths.get(db, col, doc + ".xml");
-//    }
-//
-//    public static boolean isValidPath(String uri) {
-//        try {
-//            Path path = Paths.get(uri);
-//        } catch (IllegalArgumentException e) {
-//            return false;
-//        } catch (FileSystemNotFoundException e) {
-//            return false;
-//        } catch (SecurityException e) {
-//            return false;
-//        }
-//
-//        return true;
-//    }
-
-    private Path keyToFilePath(String key) {
+    private Path keyToFilePath(String key)
+            throws IllegalArgumentException, FileSystemNotFoundException, SecurityException {
         String[] parts = key.split("\\.");
 
         String path = String.join(File.separator, parts);
@@ -151,119 +102,91 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
         return Paths.get(this.baseuri, path);
     }
 
-    private int writeFile(String path, byte[] value) {
+    // TODO: write 2 file, one is original file, another is meta file
+    private void writeXmlFile(String path, Document dom) throws IOException {
         try {
-            OutputStream outputStream = new FileOutputStream(path);
-            outputStream.write(value);
-        } catch (IOException ex) {
-            return -1; // TODO: instead hard code by enum value
-        }
+            Transformer tr = TransformerFactory.newInstance().newTransformer();
+            tr.setOutputProperty(OutputKeys.INDENT, "yes");
+            tr.setOutputProperty(OutputKeys.METHOD, "xml");
+            tr.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+            // TODO: it should be able to support dtd file
+            // tr.setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, "roles.dtd");
+            tr.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
 
-        return 0;
+            tr.transform(new DOMSource(dom),
+                    new StreamResult(new FileOutputStream(path)));
+        } catch (TransformerException e) {
+            throw new IOException(e.getMessage(), e.getCause());
+        }
     }
 
-    private static byte[] readFile(String path) {
-        try {
-            return Files.readAllBytes(Paths.get(path));
-        } catch (IOException ex) {
-            return null;
-        }
+    private void writeFile(String path, byte[] value) throws IOException {
+        OutputStream outputStream = new FileOutputStream(path);
+        outputStream.write(value);
     }
 
-    private int writeMetaFile(String path, Map<String, String> meta) {
+    private byte[] readFile(String path) throws IOException {
+        return Files.readAllBytes(Paths.get(path));
+    }
+
+    private void writeMetaFile(String path, Map<String, String> meta) throws IOException {
         DocumentBuilderFactory dbf;
+        DocumentBuilder documentBuilder;
+
         try {
             dbf = DocumentBuilderFactory.newInstance();
-        } catch (FactoryConfigurationError e) {
-            return -1; // TODO: instead hard code by enum value
-        }
-
-        DocumentBuilder documentBuilder;
-        try {
             documentBuilder = dbf.newDocumentBuilder();
-        } catch (ParserConfigurationException pce) {
-            return -2; // TODO: instead hard code by enum value
+        } catch (FactoryConfigurationError | ParserConfigurationException e) {
+            throw new IOException(e.getMessage(), e.getCause());
         }
 
         Document dom = documentBuilder.newDocument();
 
-        if (dom == null) {
-            return -3; // TODO: instead hard code by enum value
-        }
-
-        dom = serialize(dom, meta);
-
-        int ret = writeXmlFile(path, dom);
-
-        if (ret != 0) {
-            return -6;
-        }
-
-        return 0;
+        serialize(dom, meta);
+        writeXmlFile(path, dom);
     }
 
-    public Map<String, String> loadXmlFile(String path) {
-        Document dom;
-        // Make an  instance of the DocumentBuilderFactory
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    public Map<String, String> loadXmlFile(String path) throws IOException {
         try {
-            // use the factory to take an instance of the document builder
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder documentBuilder = dbf.newDocumentBuilder();
-            // parse using the builder to get the DOM mapping of the
-            // XML file
-            dom = documentBuilder.parse(path);
+            Document dom = documentBuilder.parse(path);
 
             return deserialize(dom);
-
-            // TODO: which operation will throw this exception, or miss others
-        } catch (ParserConfigurationException pce) {
-
-            // TODO: use return code instead print out to console.
-            System.out.println(pce.getMessage());
-        } catch (SAXException se) {
-            System.out.println(se.getMessage());
-        } catch (IOException ioe) {
-            System.err.println(ioe.getMessage());
+        } catch (FactoryConfigurationError | ParserConfigurationException | SAXException e) {
+            throw new IOException(e.getMessage(), e.getCause());
         }
-
-        return new HashMap<String, String>();
     }
 
     // TODO: change the signature to `int save(key, value, meta)`
-    public int save(String key, byte[] value, Map<String, String> meta) {
-        Path path = keyToFilePath(key);
-
-        if (path.getNameCount() < 2) {
-            return -1; // TODO: instead hard code by enum value, and save log if something wrong
-        }
+    public void save(String key, byte[] value, Map<String, String> meta) throws IllegalArgumentException, IOException {
+        Path path;
 
         try {
+            path = keyToFilePath(key);
+
+            if (path.getNameCount() < 2) {
+                throw new IllegalArgumentException("path.getNameCount() < 2");
+            }
+
             File parent = path.getParent().toFile();
             parent.mkdirs();
-        } catch (SecurityException e) {
-            return -2; // TODO: instead hard code by enum value, and save log if something wrong
+        } catch (FileSystemNotFoundException | SecurityException e) {
+            throw new IllegalArgumentException(e.getMessage(), e.getCause());
         }
 
         String fileExtension = meta.getOrDefault("fileExtension", "");
-
-        // write file ...
-        if (writeFile(path.toString() + fileExtension, value) != 0) {
-            return -5; // TODO: instead hard code by enum value, and save log if something wrong
-        }
+        writeFile(path.toString() + fileExtension, value);
 
         // TODO: Save content in external location not in `meta` file. Rename current file as <name>$meta.json
         // TODO: put encode field as 'hex'
         meta.put("fileUrl", path.toString() + fileExtension);
         meta.put("size", String.valueOf(value.length));
 
-        if (writeMetaFile(path.toString() + ".meta" + FilePersistentStoreDriver.extension, meta) != 0) {
-            return -6; // TODO: instead hard code by enum value, and save log if something wrong
-        }
-
-        return 0;
+        writeMetaFile(path.toString() + ".meta" + FilePersistentStoreDriver.extension, meta);
     }
 
-    public Map.Entry<byte[], Map<String, String>> load(String key) {
+    public Map.Entry<byte[], Map<String, String>> load(String key) throws IllegalArgumentException, IOException {
         byte[] value = null;
 
         Path path = keyToFilePath(key);
@@ -272,43 +195,9 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
 
         String s = meta.get("fileUrl");
         if (s != null) {
-            value = FilePersistentStoreDriver.readFile(s);
+            value = readFile(s);
         }
 
-        return new AbstractMap.SimpleEntry<byte[], Map<String, String>>(value, meta);
+        return new AbstractMap.SimpleEntry<>(value, meta);
     }
-
-//    // TODO: provide async interface
-//    public int save(String db, String col, String doc, byte[] value, Map<String, String> options) {
-//        Document dom;
-//
-//        Path path = getPath(db, col, doc);
-//        // TODO: ensure the directories had created before access it.
-//
-//        // instance of a DocumentBuilderFactory
-//        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-//        try {
-//            // use factory to get an instance of document builder
-//            DocumentBuilder _db = dbf.newDocumentBuilder();
-//
-//            // create instance of DOM
-//            dom = _db.newDocument();
-//
-//            // TODO: Save content in external location not in `meta` file. Rename current file as <name>$meta.json
-//            options.put("content", bytesToHex(value));
-//            options.put("size", String.valueOf(value.length));
-//            // TODO: put encode field as 'hex'
-//
-//            serialize(dom, options);
-//
-//            writeXmlFile(path.toString(), dom);
-//
-//            // TODO: which operation will throw this exception, or miss others
-//        } catch (ParserConfigurationException pce) {
-//            // TODO: use return code instead print out to console.
-//            System.out.println("UsersXML: Error trying to instantiate DocumentBuilder " + pce);
-//        }
-//
-//        return 0;
-//    }
 }

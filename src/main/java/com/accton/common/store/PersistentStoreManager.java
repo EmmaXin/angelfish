@@ -1,7 +1,10 @@
 package com.accton.common.store;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.NoSuchFileException;
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -73,7 +76,7 @@ class VersionHistoryCache {
         return this.versionHistory;
     }
 
-    public String toString() {
+    public String toJsonString() {
         String s = "[\n";
 
         for (DocumentMeta entry : this.versionHistory) {
@@ -103,18 +106,28 @@ class NoSuchVersionException extends RuntimeException {
 }
 
 class BackupService {
+    static final long DEFAULT_AUTO_SAVE_INTERVAL_MILLI_SECONDS = 10 * 60 * 1000;
+
     private String packageName;
     private PersistentStoreDriver persistentStoreDriver;
     private VersionHistoryCache versionHistoryCache;
 
-    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
+    private long autoSaveIntervalMilliSeconds;
+
+    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver, long autoSaveIntervalMilliSeconds) {
         this.packageName = packageName;
         this.persistentStoreDriver = persistentStoreDriver;
         this.versionHistoryCache = new VersionHistoryCache();
+
+        this.autoSaveIntervalMilliSeconds = autoSaveIntervalMilliSeconds;
+    }
+
+    BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
+        this(packageName, persistentStoreDriver, DEFAULT_AUTO_SAVE_INTERVAL_MILLI_SECONDS);
     }
 
     // TODO: using async interface
-    public void dataChanged(String key) {
+    public void dataChanged(String key) throws IOException {
         Map.Entry<byte[], Map<String, String>> data = persistentStoreDriver.load(key);
 
         String[] parts = key.split("\\.");
@@ -122,19 +135,22 @@ class BackupService {
         parts[parts.length - 1] = "backups";
         String backupId = String.join(File.separator, parts) + "." + data.getValue().get("id");
 
-        int ret = persistentStoreDriver.save(backupId, data.getKey(), data.getValue());
-        assert(ret == 0); // TODO: re-throw except if error
+        try {
+            persistentStoreDriver.save(backupId, data.getKey(), data.getValue());
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e.getCause());
+        }
 
         {
             Integer size = Integer.parseInt(data.getValue().getOrDefault("size", "-1"));
             String fileUri = data.getValue().get("fileUri");
 
             // TODO: the document meta should be obtained from options
-            DocumentMeta record = new DocumentMeta(data.getValue().get("id"), data.getValue().get("modified"), size, fileUri);
+            DocumentMeta documentMeta = DocumentMeta.create(data.getValue());
 
-            this.versionHistoryCache.add(record);
+            this.versionHistoryCache.add(documentMeta);
 
-            String versionHistoryJson = this.versionHistoryCache.toString();
+            String versionHistoryJson = this.versionHistoryCache.toJsonString();
 
             byte[] v = versionHistoryJson.getBytes();
 
@@ -146,30 +162,119 @@ class BackupService {
             versionHistoryCacheMeta.put("modified", timeStamp);
             versionHistoryCacheMeta.put("fileExtension", ".json");
 
-            ret = this.persistentStoreDriver.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
-            assert(ret == 0); // TODO: re-throw except if error
+            try {
+                this.persistentStoreDriver.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
+            } catch (IllegalArgumentException e) {
+                throw new IOException(e.getMessage(), e.getCause());
+            }
         }
     }
 
     // TODO: using async interface
     public Map.Entry<byte[], Map<String, String>> find(String versionId)
-            throws NoSuchVersionException, NoSuchFileException {
+            throws IllegalArgumentException, IOException {
         DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
 
         if (docMeta == null) {
-            throw new NoSuchVersionException(versionId);
+            throw new IllegalArgumentException("Can't find this version " + versionId);
         }
 
-        Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".backups." + versionId);
-        if (result.getKey() == null) {
-            throw new NoSuchFileException("this.packageName + \".backups.\" + versionId");
-        }
-
-        return result;
+        return this.persistentStoreDriver.load(this.packageName + ".backups." + versionId);
     }
 
-    public ArrayList<DocumentMeta> getAllVersions() {
-        return this.versionHistoryCache.getHistoryList();
+    public Map<String, DocumentMeta[]> getAllVersions() {
+        ArrayList<DocumentMeta> historyList  = this.versionHistoryCache.getHistoryList();
+        Map<String, ArrayList<DocumentMeta>> allVersions = new HashMap<>();
+        Map<String, Date> lastSaveDate = new HashMap<>();
+
+        for (ListIterator iterator = historyList.listIterator(historyList.size()); iterator.hasPrevious();) {
+            DocumentMeta doc = (DocumentMeta) iterator.previous();
+
+            if (allVersions.get(doc.getKey()) == null) {
+                allVersions.put(doc.getKey(), new ArrayList<>());
+            }
+
+            //if (key.equals(doc.getKey())) {
+            try {
+                Date current = BackupService.getDocumentModifiedDate(doc);
+
+                if (lastSaveDate.get(doc.getKey()) == null) {
+                    ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
+                    l.add(0, doc);
+                    lastSaveDate.put(doc.getKey(), current);
+                } else {
+                    long diffMillis = current.getTime() - lastSaveDate.get(doc.getKey()).getTime();
+                    if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
+                        //allVersions.add(0, doc);
+                        ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
+                        l.add(0, doc);
+                        lastSaveDate.put(doc.getKey(), current);
+                    } else {
+                        ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
+                        l.remove(0);
+                        l.add(0, doc);
+                        //allVersions.remove(0);
+                        //allVersions.add(0, doc);
+                    }
+                }
+            } catch (ParseException e) {
+                // TODO: log bad record
+            }
+            //}
+        }
+
+        Map<String, DocumentMeta[]> ret = new HashMap<>();
+        for (Map.Entry<String, ArrayList<DocumentMeta>> entry : allVersions.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                ret.put(entry.getKey(), entry.getValue().toArray(new DocumentMeta[0]));
+            }
+        }
+
+        return ret;
+    }
+
+    // TODO: Add getKeys() : string[]
+
+    public DocumentMeta[] getAllVersions(String key) {
+        ArrayList<DocumentMeta> historyList  = this.versionHistoryCache.getHistoryList();
+        ArrayList<DocumentMeta> allVersions = new ArrayList<>();
+        Date lastSaveDate = null;
+
+        for (ListIterator iterator = historyList.listIterator(historyList.size()); iterator.hasPrevious();) {
+            DocumentMeta doc = (DocumentMeta) iterator.previous();
+
+            if (key.equals(doc.getKey())) {
+                try {
+                    Date current = BackupService.getDocumentModifiedDate(doc);
+
+                    if (lastSaveDate == null) {
+                        allVersions.add(0, doc);
+                        lastSaveDate = current;
+                    } else {
+                        long diffMillis = current.getTime() - lastSaveDate.getTime();
+                        if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
+                            allVersions.add(0, doc);
+                            lastSaveDate = current;
+                        } else {
+                            allVersions.remove(0);
+                            allVersions.add(0, doc);
+                        }
+                    }
+                } catch (ParseException e) {
+                    // TODO: log bad record
+                }
+            }
+        }
+
+        return allVersions.toArray(new DocumentMeta[0]);
+    }
+
+    static Date getDocumentModifiedDate(DocumentMeta documentMeta) throws ParseException {
+        String format = documentMeta.getModifiedFormat();
+        String modified = documentMeta.getModified();
+
+        DateFormat dateFormat = new SimpleDateFormat(format);
+        return dateFormat.parse(modified);
     }
 }
 
@@ -177,6 +282,7 @@ public class PersistentStoreManager {
     private PersistentStoreDriver persistentStoreDriver;
     private String packageName;
 
+    private Calendar calendarInstance;  // for internal testing
     private BackupService backupService;
 
     private DocumentMeta currentDoc;
@@ -190,6 +296,7 @@ public class PersistentStoreManager {
         // TODO: load veersionHistoryCache from persistent storage
         // TODO: rebuild versionHistoryCache from persistent storage
 
+        calendarInstance = null;
         this.backupService = new BackupService(packageName, persistentStoreDriver);
     }
 
@@ -198,60 +305,45 @@ public class PersistentStoreManager {
         // TODO: load versionHistory
     }
 
-    /**
-     * Call to save data
-     * @param content
-     * @param observer, null means sync-call
-     */
     // TODO: accept string format content
     // TODO: accept json format content
-    public int save(byte[] content /*, BackupObserver observer*/) {
-        int ret;
+    public int save(byte[] content, String description /*, BackupObserver observer*/) throws IOException {
+        int ret = 0;
 
-        Map<String, String> meta = new HashMap<>();
-
-        Date now = Calendar.getInstance().getTime();
-
-        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
-        String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
-
-        meta.put("id", id); // TOD: id is timeStamp, it will change each saving operation. NOT id.
-        meta.put("modified", timeStamp);
-        meta.put("fileExtension", ".json");
-
-        {
-            ret = this.persistentStoreDriver.save(this.packageName + ".current", content, meta);
-            if (ret == 0) {
-                this.currentDoc = DocumentMeta.create(meta);
-            }
-
-            // TODO: check return value, if error case
+        Calendar calendar = this.calendarInstance;
+        if (this.calendarInstance == null) {
+            calendar = Calendar.getInstance();
         }
+
+        Date now = calendar.getTime();
+
+        Map<String, String> meta = save(this.packageName + ".current", content, now, this.persistentStoreDriver);
+        this.currentDoc = DocumentMeta.create(meta);
 
         this.backupService.dataChanged(this.packageName + ".current");
 
         return ret;
     }
 
-    /**
-     * Call to restore
-     * @param versionId
-     * @param observer, null means sync-call
-     * @return
-     */
     public byte[] restore(String versionId /*, BackupObserver observer*/)
-            throws NoSuchVersionException, NoSuchFileException {
-        Map.Entry<byte[], Map<String, String>> result = this.backupService.find(versionId);
-
-        Integer ret = this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());
-        this.currentDoc = DocumentMeta.create(result.getValue());
-
-        return result.getKey();
+            throws IllegalArgumentException, IOException {
+        try {
+            Map.Entry<byte[], Map<String, String>> result = this.backupService.find(versionId);
+            this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());
+            this.currentDoc = DocumentMeta.create(result.getValue());
+            return result.getKey();
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e.getCause());
+        }
     }
 
     // TODO: return versionHistoryCache plus self information, like current used config, packetname ... etc
-    public ArrayList<DocumentMeta> getAllVersions() {
+    public Map<String, DocumentMeta[]> getAllVersions() {
         return this.backupService.getAllVersions();
+    }
+
+    public DocumentMeta[] getAllVersions(String key) {
+        return this.backupService.getAllVersions(key);
     }
 
     public String getCurrentVersionId() {
@@ -267,7 +359,34 @@ public class PersistentStoreManager {
             return null;
         }
 
-        Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".current");
-        return result.getKey();
+        try {
+            Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".current");
+            return result.getKey();
+        } catch (IllegalArgumentException | IOException e) {
+            return null;
+        }
+    }
+
+    protected void setCalendarInstance(Calendar calendarInstance) {
+        this.calendarInstance = calendarInstance;
+    }
+
+    public static Map<String, String> save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver) throws IOException {
+        Map<String, String> meta = new HashMap<>();
+
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
+        String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
+
+        // TODO: id is timeStamp, it will change each saving operation. NOT id.
+        meta.put("id", id);
+        meta.put("key", key);
+        meta.put("modified", timeStamp);
+        meta.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+        meta.put("fileExtension", ".json");
+
+        persistentStoreDriver.save(key, content, meta);
+        // TODO: check return value, if error case
+
+        return meta;
     }
 }

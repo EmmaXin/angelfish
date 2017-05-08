@@ -1,6 +1,6 @@
-package CoreDataService.impl;
+package com.accton.common.store.impl;
 
-import CoreDataService.PersistentStoreDriver;
+import com.accton.common.store.PersistentStoreDriver;
 
 import java.io.File;
 import java.io.FileOutputStream;

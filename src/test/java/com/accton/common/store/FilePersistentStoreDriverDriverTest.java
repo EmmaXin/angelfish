@@ -1,6 +1,6 @@
-package CoreDataService;
+package com.accton.common.store;
 
-import CoreDataService.impl.FilePersistentStoreDriver;
+import com.accton.common.store.impl.FilePersistentStoreDriver;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;

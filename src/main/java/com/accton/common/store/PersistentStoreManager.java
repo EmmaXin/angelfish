@@ -2,7 +2,6 @@ package com.accton.common.store;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -138,7 +137,7 @@ class BackupService {
         try {
             persistentStoreDriver.save(backupId, data.getKey(), data.getValue());
         } catch (IllegalArgumentException e) {
-            throw new IOException(e.getMessage(), e.getCause());
+            throw new IOException("failed to backup file for key(" + key + "): ", e);
         }
 
         {
@@ -165,7 +164,7 @@ class BackupService {
             try {
                 this.persistentStoreDriver.save(this.packageName + ".versionHistoryCache", v, versionHistoryCacheMeta);
             } catch (IllegalArgumentException e) {
-                throw new IOException(e.getMessage(), e.getCause());
+                throw new IOException("failed to save versionHistoryCache file: ", e);
             }
         }
     }
@@ -317,7 +316,12 @@ public class PersistentStoreManager {
 
         Date now = calendar.getTime();
 
-        Map<String, String> meta = save(this.packageName + ".current", content, now, this.persistentStoreDriver);
+        Map<String, String> options = new HashMap<>();
+        if (description != null) {
+            options.put("description", description);
+        }
+
+        Map<String, String> meta = save(this.packageName + ".current", content, options, now, this.persistentStoreDriver);
         this.currentDoc = DocumentMeta.create(meta);
 
         this.backupService.dataChanged(this.packageName + ".current");
@@ -333,7 +337,7 @@ public class PersistentStoreManager {
             this.currentDoc = DocumentMeta.create(result.getValue());
             return result.getKey();
         } catch (IllegalArgumentException e) {
-            throw new IOException(e.getMessage(), e.getCause());
+            throw new IOException("failed to restore file for id(" + versionId + "): ", e);
         }
     }
 
@@ -371,22 +375,30 @@ public class PersistentStoreManager {
         this.calendarInstance = calendarInstance;
     }
 
-    public static Map<String, String> save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver) throws IOException {
-        Map<String, String> meta = new HashMap<>();
+    public static Map<String, String> save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver)
+            throws IOException {
+        return save(key, content, new HashMap<String, String>(), now, persistentStoreDriver);
+    }
+
+    public static Map<String, String> save(String key, byte[] content, Map<String, String> meta, Date now, PersistentStoreDriver persistentStoreDriver)
+            throws IOException {
+        Map<String, String> metaClone = new HashMap<>(meta);
 
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
         String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
 
+        // TODO: meta file should have version control
+
         // TODO: id is timeStamp, it will change each saving operation. NOT id.
-        meta.put("id", id);
-        meta.put("key", key);
-        meta.put("modified", timeStamp);
-        meta.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
-        meta.put("fileExtension", ".json");
+        metaClone.putIfAbsent("version", "1.0");
+        metaClone.putIfAbsent("id", id);
+        metaClone.putIfAbsent("key", key);
+        metaClone.putIfAbsent("modified", timeStamp);
+        metaClone.putIfAbsent("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+        metaClone.putIfAbsent("fileExtension", ".json");
 
-        persistentStoreDriver.save(key, content, meta);
+        persistentStoreDriver.save(key, content, metaClone);
         // TODO: check return value, if error case
-
-        return meta;
+        return metaClone;
     }
 }

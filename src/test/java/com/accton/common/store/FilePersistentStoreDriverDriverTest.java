@@ -98,13 +98,13 @@ public class FilePersistentStoreDriverDriverTest
         try {
             service.save("network.current", value, meta);
             fail();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        } catch (IOException e) {
+            //System.out.println(e.getMessage());
         }
     }
 
     public void testSaveFileIllegalArgumentError() {
-        FilePersistentStoreDriver service = new FilePersistentStoreDriver("/qwertyuiop??/asdfghjkl");
+        FilePersistentStoreDriver service = new FilePersistentStoreDriver("/qwertyuiop??");
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
         Map<String, String> meta = new HashMap<>();
@@ -115,8 +115,29 @@ public class FilePersistentStoreDriverDriverTest
         try {
             service.save("network.current", value, meta);
             fail();
+        } catch (IllegalArgumentException e) {
+            //System.out.println(e.getMessage());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            fail();
+        }
+    }
+
+    public void testLoadFileIllegalArgumentError() {
+        FilePersistentStoreDriver service = new FilePersistentStoreDriver("/qwertyuiop??");
+
+        byte[] value = "{\"hello\": \"world\"}".getBytes();
+        Map<String, String> meta = new HashMap<>();
+
+        meta.put("fileExtension", ".json");
+        meta.put("sayHello", "hello");
+
+        try {
+            service.load("qwertyuiop??");
+            fail();
+        } catch (IllegalArgumentException e) {
+            //System.out.println(e.getMessage());
+        } catch (Exception e) {
+            fail();
         }
     }
 

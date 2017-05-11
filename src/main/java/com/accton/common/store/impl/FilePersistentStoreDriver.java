@@ -7,10 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import java.nio.file.FileSystemNotFoundException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -102,7 +99,6 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
         return Paths.get(this.baseuri, path);
     }
 
-    // TODO: write 2 file, one is original file, another is meta file
     private void writeXmlFile(String path, Document dom) throws IOException {
         try {
             Transformer tr = TransformerFactory.newInstance().newTransformer();
@@ -116,7 +112,7 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
             tr.transform(new DOMSource(dom),
                     new StreamResult(new FileOutputStream(path)));
         } catch (TransformerException e) {
-            throw new IOException(e.getMessage(), e.getCause());
+            throw new IOException("failed to write file("+ path + "): ", e);
         }
     }
 
@@ -137,7 +133,7 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
             dbf = DocumentBuilderFactory.newInstance();
             documentBuilder = dbf.newDocumentBuilder();
         } catch (FactoryConfigurationError | ParserConfigurationException e) {
-            throw new IOException(e.getMessage(), e.getCause());
+            throw new IOException("failed to write meta file (" + path + "): ", e);
         }
 
         Document dom = documentBuilder.newDocument();
@@ -154,11 +150,10 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
 
             return deserialize(dom);
         } catch (FactoryConfigurationError | ParserConfigurationException | SAXException e) {
-            throw new IOException(e.getMessage(), e.getCause());
+            throw new IOException("failed to read file (" + path + "): ", e);
         }
     }
 
-    // TODO: change the signature to `int save(key, value, meta)`
     public void save(String key, byte[] value, Map<String, String> meta) throws IllegalArgumentException, IOException {
         Path path;
 
@@ -166,20 +161,18 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
             path = keyToFilePath(key);
 
             if (path.getNameCount() < 2) {
-                throw new IllegalArgumentException("path.getNameCount() < 2");
+                throw new IllegalArgumentException("invalid path (" + path + ")");
             }
 
             File parent = path.getParent().toFile();
             parent.mkdirs();
         } catch (FileSystemNotFoundException | SecurityException e) {
-            throw new IllegalArgumentException(e.getMessage(), e.getCause());
+            throw new IllegalArgumentException("invalid key (" + key + "): ", e);
         }
 
         String fileExtension = meta.getOrDefault("fileExtension", "");
         writeFile(path.toString() + fileExtension, value);
 
-        // TODO: Save content in external location not in `meta` file. Rename current file as <name>$meta.json
-        // TODO: put encode field as 'hex'
         meta.put("fileUrl", path.toString() + fileExtension);
         meta.put("size", String.valueOf(value.length));
 
@@ -188,7 +181,6 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
 
     public Map.Entry<byte[], Map<String, String>> load(String key) throws IllegalArgumentException, IOException {
         byte[] value = null;
-
         Path path = keyToFilePath(key);
 
         Map<String, String> meta = loadXmlFile(path.toString() + ".meta" + FilePersistentStoreDriver.extension);

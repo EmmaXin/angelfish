@@ -92,18 +92,6 @@ class VersionHistoryCache {
     }
 }
 
-/*
-interface BackupObserver {
-    void onComplete(int error);
-}
-*/
-
-class NoSuchVersionException extends RuntimeException {
-    public NoSuchVersionException(String s) {
-        super(s);
-    }
-}
-
 class BackupService {
     static final long DEFAULT_AUTO_SAVE_INTERVAL_MILLI_SECONDS = 10 * 60 * 1000;
 
@@ -127,12 +115,12 @@ class BackupService {
 
     // TODO: using async interface
     public void dataChanged(String key) throws IOException {
-        Map.Entry<byte[], Map<String, String>> data = persistentStoreDriver.load(key);
+        Map.Entry<byte[], DocumentMeta> data = persistentStoreDriver.load(key);
 
         String[] parts = key.split("\\.");
 
         parts[parts.length - 1] = "backups";
-        String backupId = String.join(File.separator, parts) + "." + data.getValue().get("id");
+        String backupId = String.join(File.separator, parts) + "." + data.getValue().getId();
 
         try {
             persistentStoreDriver.save(backupId, data.getKey(), data.getValue());
@@ -141,11 +129,7 @@ class BackupService {
         }
 
         {
-            Integer size = Integer.parseInt(data.getValue().getOrDefault("size", "-1"));
-            String fileUri = data.getValue().get("fileUri");
-
-            // TODO: the document meta should be obtained from options
-            DocumentMeta documentMeta = DocumentMeta.create(data.getValue());
+            DocumentMeta documentMeta = data.getValue();
 
             this.versionHistoryCache.add(documentMeta);
 
@@ -153,7 +137,7 @@ class BackupService {
 
             byte[] v = versionHistoryJson.getBytes();
 
-            Map<String, String> versionHistoryCacheMeta = new HashMap<>();
+            Map<String, Object> versionHistoryCacheMeta = new HashMap<>();
 
             Date now = Calendar.getInstance().getTime();
             String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
@@ -170,7 +154,7 @@ class BackupService {
     }
 
     // TODO: using async interface
-    public Map.Entry<byte[], Map<String, String>> find(String versionId)
+    public Map.Entry<byte[], DocumentMeta> find(String versionId)
             throws IllegalArgumentException, IOException {
         DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
 
@@ -306,9 +290,7 @@ public class PersistentStoreManager {
 
     // TODO: accept string format content
     // TODO: accept json format content
-    public int save(byte[] content, String description /*, BackupObserver observer*/) throws IOException {
-        int ret = 0;
-
+    public void save(byte[] content, String description) throws IOException {
         Calendar calendar = this.calendarInstance;
         if (this.calendarInstance == null) {
             calendar = Calendar.getInstance();
@@ -316,25 +298,20 @@ public class PersistentStoreManager {
 
         Date now = calendar.getTime();
 
-        Map<String, String> options = new HashMap<>();
+        Map<String, Object> options = new HashMap<>();
         if (description != null) {
             options.put("description", description);
         }
 
-        Map<String, String> meta = save(this.packageName + ".current", content, options, now, this.persistentStoreDriver);
-        this.currentDoc = DocumentMeta.create(meta);
-
+        this.currentDoc = save(this.packageName + ".current", content, options, now, this.persistentStoreDriver);
         this.backupService.dataChanged(this.packageName + ".current");
-
-        return ret;
     }
 
-    public byte[] restore(String versionId /*, BackupObserver observer*/)
+    public byte[] restore(String versionId)
             throws IllegalArgumentException, IOException {
         try {
-            Map.Entry<byte[], Map<String, String>> result = this.backupService.find(versionId);
-            this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());
-            this.currentDoc = DocumentMeta.create(result.getValue());
+            Map.Entry<byte[], DocumentMeta> result = this.backupService.find(versionId);
+            this.currentDoc = this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());
             return result.getKey();
         } catch (IllegalArgumentException e) {
             throw new IOException("failed to restore file for id(" + versionId + "): ", e);
@@ -364,7 +341,7 @@ public class PersistentStoreManager {
         }
 
         try {
-            Map.Entry<byte[], Map<String, String>> result = this.persistentStoreDriver.load(this.packageName + ".current");
+            Map.Entry<byte[], DocumentMeta> result = this.persistentStoreDriver.load(this.packageName + ".current");
             return result.getKey();
         } catch (IllegalArgumentException | IOException e) {
             return null;
@@ -375,14 +352,14 @@ public class PersistentStoreManager {
         this.calendarInstance = calendarInstance;
     }
 
-    public static Map<String, String> save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver)
+    public static DocumentMeta save(String key, byte[] content, Date now, PersistentStoreDriver persistentStoreDriver)
             throws IOException {
-        return save(key, content, new HashMap<String, String>(), now, persistentStoreDriver);
+        return save(key, content, new HashMap<String, Object>(), now, persistentStoreDriver);
     }
 
-    public static Map<String, String> save(String key, byte[] content, Map<String, String> meta, Date now, PersistentStoreDriver persistentStoreDriver)
+    public static DocumentMeta save(String key, byte[] content, Map<String, Object> meta, Date now, PersistentStoreDriver persistentStoreDriver)
             throws IOException {
-        Map<String, String> metaClone = new HashMap<>(meta);
+        Map<String, Object> metaClone = new HashMap<>(meta);
 
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(now);
         String id = new SimpleDateFormat("yyyyMMddHHmmssSSS").format(now);
@@ -397,8 +374,6 @@ public class PersistentStoreManager {
         metaClone.putIfAbsent("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
         metaClone.putIfAbsent("fileExtension", ".json");
 
-        persistentStoreDriver.save(key, content, metaClone);
-        // TODO: check return value, if error case
-        return metaClone;
+        return persistentStoreDriver.save(key, content, metaClone);
     }
 }

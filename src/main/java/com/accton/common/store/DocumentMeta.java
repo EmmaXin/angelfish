@@ -1,133 +1,110 @@
 package com.accton.common.store;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Map;
 
-class DocumentMeta {
+public class DocumentMeta {
     // TODO: move optional attribute into attributes
 
-    // TODO: set priavte level for all data member
     // TODO: create a `getAttribute(name)` function to access all data member
-    private String id;
-    private String key;
-    private String modified;
-    private String modifiedFormat;
-    private String modifiedBy;
-    private Integer size;
-    private String description;
-    private String fileUrl;
-
-//    Map<String, String> properties;
-
-//    public DocumentMeta(String id, String modified, String modifiedBy, Integer size, String description) {
-//        this.id = id;
-//        this.modified = modified;
-//        this.modifiedBy = modifiedBy;
-//        this.size = size;
-//        this.description = description;
-//    }
+    private JSONObject object;
 
     public static DocumentMeta create(Map<String, String> attrs) {
         DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
 
         for (Map.Entry<String, String> entry : attrs.entrySet()) {
-            docMeta.set(entry.getKey(), entry.getValue());
+            docMeta.put(entry.getKey(), entry.getValue());
         }
 
         return docMeta;
     }
 
-    public DocumentMeta(String id, String modified, Integer size, String fileUrl) {
-        this.id = id;
-        this.key = "";
-        this.modified = modified;
-        this.modifiedFormat = "yyyy-MM-dd HH:mm:ss.SSS";
-        this.modifiedBy = "";
-        this.size = size;
-        this.description = "";
-        this.fileUrl = fileUrl;
+    public static DocumentMeta create2(Map<String, Object> attrs) {
+        DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
 
-//        this.attributes = new HashMap<>();
+        for (Map.Entry<String, Object> entry : attrs.entrySet()) {
+            docMeta.put(entry.getKey(), entry.getValue());
+        }
+
+        return docMeta;
     }
 
-//    public DocumentMeta setModifiedBy(String modifiedBy) {
-//        this.modifiedBy = modifiedBy;
-//        return this;
-//    }
-//
-//    public DocumentMeta setDescription(String description) {
-//        this.description = description;
-//        return this;
-//    }
+    public static DocumentMeta create(String string) {
+        try {
+            JSONObject jsonObject = new JSONObject(string);
+            return new DocumentMeta(jsonObject);
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    private DocumentMeta(JSONObject jsonObject) {
+        object = jsonObject;
+    }
+
+    public DocumentMeta(String id, String modified, Integer size, String fileUrl) {
+        object = new JSONObject();
+
+        put("id", id);
+        put("modified", modified);
+        put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+        put("size", size);
+        put("fileUrl", fileUrl);
+    }
 
     public String getId() {
-        return this.id;
+        return object.optString("id", null);
     }
 
     public String getKey() {
-        return this.key;
+        return object.optString("key", null);
     }
 
     public Integer getSize() {
-        return this.size;
+        return object.optInt("size", -1);
     }
 
-    public String getModified() { return this.modified; }
-
-    public String getModifiedFormat() { return this.modifiedFormat; }
-
-    public String value(String key) {
-        if (key.equals("modified")) {
-            return this.modified;
-        }
-
-        return null;
+    public String getModified() {
+        return object.optString("modified", null);
     }
 
-    public DocumentMeta set(String key, String value) {
-        switch (key) {
-            case "id":
-                this.id = value;
-                break;
+    public String getModifiedFormat() {
+        return object.optString("modifiedFormat", null);
+    }
 
-            case "key":
-                this.key = value;
-                break;
+    public String getModifiedBy() {
+        return object.optString("modifiedBy", null);
+    }
 
-            case "modified":
-                this.modified = value;
-                break;
+    public String getDescription() {
+        return object.optString("description", null);
+    }
 
-            case "modifiedFormat":
-                this.modifiedFormat = value;
-                break;
+    public String getFileUrl() {
+        return object.optString("fileUrl", null);
+    }
 
-            case "modifiedBy":
-                this.modifiedBy = value;
-                break;
-
-            case "size":
-                this.size = Integer.parseInt(value);
-                break;
-
-            case "description":
-                this.description = value;
-                break;
-
-            case "fileUrl":
-                this.fileUrl = value;
-                break;
+    public DocumentMeta put(String key, Object value) {
+        try {
+            object.put(key, value);
+        } catch (JSONException e) {
+            ;
         }
 
         return this;
     }
 
+    public String getString(String key) {
+        return object.optString(key);
+    }
+
+    public String getString(String key, String defaultValue) {
+        return object.optString(key, defaultValue);
+    }
+
     public String toJsonString() {
-        return "{\n" +
-                "  \"id\":" + "\"" + this.id + "\",\n" +
-                "  \"modified\":" + "\"" + this.modified + "\",\n" +
-                "  \"modifiedBy\":" + "\"" + this.modifiedBy + "\",\n" +
-                "  \"size\":" + String.valueOf(this.size) + ",\n" +
-                "  \"description\":" + "\"" + this.description + "\"\n" +
-                "}";
+        return object.toString(4);
     }
 }

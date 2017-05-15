@@ -91,9 +91,9 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 2);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[1].getKey().equals(key));
 
             PersistentStoreManager.save(key, "internal version 1".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:20:00.000"), persistentStoreDriver);
@@ -101,11 +101,11 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 3);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:20:00.000"));
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:20:00.000"));
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[1].getKey().equals(key));
-            assertTrue(allVersions[2].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[2].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[2].getKey().equals(key));
 
             //
@@ -115,11 +115,11 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 3);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:21:00.000")); // Last version
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:21:00.000")); // Last version
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[1].getKey().equals(key));
-            assertTrue(allVersions[2].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[2].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[2].getKey().equals(key));
 
             //
@@ -129,11 +129,11 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 3);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:29:59.000")); // Last version
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:29:59.000")); // Last version
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[1].getKey().equals(key));
-            assertTrue(allVersions[2].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[2].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[2].getKey().equals(key));
 
             //
@@ -143,13 +143,13 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 4);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:30:00.000")); // Last version
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:30:00.000")); // Last version
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:29:59.000"));
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:29:59.000"));
             assertTrue(allVersions[1].getKey().equals(key));
-            assertTrue(allVersions[2].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[2].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[2].getKey().equals(key));
-            assertTrue(allVersions[3].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[3].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[3].getKey().equals(key));
 
             //
@@ -159,15 +159,15 @@ public class PersistentStoreDriverDriverManagerTest
 
             allVersions = backupService.getAllVersions(key);
             assertTrue(allVersions.length == 5);
-            assertTrue(allVersions[0].value("modified").equals("2017-05-01 01:40:00.000")); // Last version
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:40:00.000")); // Last version
             assertTrue(allVersions[0].getKey().equals(key));
-            assertTrue(allVersions[1].value("modified").equals("2017-05-01 01:30:00.000")); // Last version
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:30:00.000")); // Last version
             assertTrue(allVersions[1].getKey().equals(key));
-            assertTrue(allVersions[2].value("modified").equals("2017-05-01 01:29:59.000"));
+            assertTrue(allVersions[2].getModified().equals("2017-05-01 01:29:59.000"));
             assertTrue(allVersions[2].getKey().equals(key));
-            assertTrue(allVersions[3].value("modified").equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[3].getModified().equals("2017-05-01 01:10:00.000"));
             assertTrue(allVersions[3].getKey().equals(key));
-            assertTrue(allVersions[4].value("modified").equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[4].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[4].getKey().equals(key));
         } catch (ParseException | IOException e) {
             System.out.println(e.getMessage());
@@ -295,8 +295,7 @@ public class PersistentStoreDriverDriverManagerTest
         byte[] value = "{\"hello\": \"world\"}".getBytes();
 
         try {
-            int ret = mgr.save(value, "test version");
-            assertTrue(ret == 0);
+            mgr.save(value, "test version");
         } catch (IOException e) {
             System.out.println(e.getMessage());
             fail();
@@ -335,8 +334,7 @@ public class PersistentStoreDriverDriverManagerTest
             for (byte[] file : files) {
                 calendar.set(2017, 5, 1, 0, minute += 10, 0);
                 mgr.setCalendarInstance(calendar);
-                Integer ret = mgr.save(file, "test version");
-                assertTrue(ret == 0);
+                mgr.save(file, "test version");
             }
         } catch (IOException ex) {
             System.out.println(ex.getMessage());
@@ -351,7 +349,7 @@ public class PersistentStoreDriverDriverManagerTest
         try {
             byte[] output = mgr.restore(versionHistory[1].getId());
             assertTrue(Arrays.equals(output, files.get(0)));
-        } catch (IOException | NoSuchVersionException e) {
+        } catch (IOException e) {
             System.out.println(e);
             fail();
         }

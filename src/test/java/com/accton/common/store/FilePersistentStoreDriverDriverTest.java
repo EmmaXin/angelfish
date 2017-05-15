@@ -5,11 +5,8 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import javax.imageio.IIOException;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,22 +61,22 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver(this.cwd);
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        Map<String, String> meta = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
 
         meta.put("fileExtension", ".json");
         meta.put("sayHello", "hello");
 
         try {
-            service.save("network.current", value, meta);
+            DocumentMeta documentMeta = service.save("network.current", value, meta);
 
-            File file = new File(meta.get("fileUrl"));
+            File file = new File(documentMeta.getFileUrl());
             assertTrue(file.isFile());
 
-            Map.Entry<byte[], Map<String, String>> result = service.load("network.current");
+            Map.Entry<byte[], DocumentMeta> result = service.load("network.current");
 
             assertTrue(Arrays.equals(result.getKey(), value));
-            assertTrue(result.getValue().get("size").equals(String.valueOf(value.length)));
-            assertTrue(result.getValue().get("sayHello").equals("hello"));
+            assertTrue(result.getValue().getSize() == value.length);
+            assertTrue(result.getValue().getString("sayHello").equals("hello"));
         } catch (Exception e) {
             System.out.println(e.getMessage());
             fail();
@@ -90,7 +87,7 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver("a:\\qwertyuiop\\asdfghjkl");
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        Map<String, String> meta = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
 
         meta.put("fileExtension", ".json");
         meta.put("sayHello", "hello");
@@ -107,7 +104,7 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver("/qwertyuiop??");
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        Map<String, String> meta = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
 
         meta.put("fileExtension", ".json");
         meta.put("sayHello", "hello");
@@ -126,7 +123,7 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver("/qwertyuiop??");
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        Map<String, String> meta = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
 
         meta.put("fileExtension", ".json");
         meta.put("sayHello", "hello");
@@ -145,7 +142,7 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver("");
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
-        Map<String, String> meta = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
 
         meta.put("fileExtension", ".json");
         meta.put("sayHello", "hello");
@@ -164,7 +161,7 @@ public class FilePersistentStoreDriverDriverTest
         FilePersistentStoreDriver service = new FilePersistentStoreDriver(this.cwd);
 
         try {
-            Map.Entry<byte[], Map<String, String>> result = service.load("network.noExist");
+            Map.Entry<byte[], DocumentMeta> result = service.load("network.noExist");
             fail();
         } catch (IOException e) {
         } catch (Exception e) {

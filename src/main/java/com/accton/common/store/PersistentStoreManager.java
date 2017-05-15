@@ -1,7 +1,11 @@
 package com.accton.common.store;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -111,6 +115,26 @@ class BackupService {
 
     BackupService(String packageName, PersistentStoreDriver persistentStoreDriver) {
         this(packageName, persistentStoreDriver, DEFAULT_AUTO_SAVE_INTERVAL_MILLI_SECONDS);
+    }
+
+    public void init() throws IOException {
+        Map.Entry<byte[], DocumentMeta> data = this.persistentStoreDriver.load(this.packageName + ".versionHistoryCache");
+        byte[] bytes =  data.getKey();
+        String jsonString = new String(bytes, StandardCharsets.UTF_8);
+
+        try {
+            JSONArray array = new JSONArray(jsonString);
+
+            this.versionHistoryCache = new VersionHistoryCache();
+            for (Object item : array.toList()) {
+                if (item instanceof Map) {
+                    DocumentMeta documentMeta = DocumentMeta.create((Map<String, Object>) item);
+                    this.versionHistoryCache.add(documentMeta);
+                }
+            }
+        } catch (JSONException e) {
+            ;
+        }
     }
 
     // TODO: using async interface
@@ -276,16 +300,15 @@ public class PersistentStoreManager {
 
         this.currentDoc = null;
 
-        // TODO: load veersionHistoryCache from persistent storage
-        // TODO: rebuild versionHistoryCache from persistent storage
-
         calendarInstance = null;
         this.backupService = new BackupService(packageName, persistentStoreDriver);
     }
 
-    public void init() {
-        // TODO: load currentDoc
-        // TODO: load versionHistory
+    public void init() throws IllegalArgumentException, IOException {
+        Map.Entry<byte[], DocumentMeta> result = this.persistentStoreDriver.load(this.packageName + ".current");
+        this.currentDoc = result.getValue();
+
+        this.backupService.init();
     }
 
     // TODO: accept string format content

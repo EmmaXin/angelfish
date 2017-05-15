@@ -6,7 +6,6 @@ import junit.framework.TestSuite;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import org.json.*;
 
@@ -61,14 +60,36 @@ public class DocumentMetaTest
         System.out.println();
     }
 
-    public void testDeserializeFromHashMap() {
-        Map<String, String> attributes = new HashMap<>();
+//    public void testDeserializeFromHashMap() {
+//        Map<String, String> attributes = new HashMap<>();
+//        attributes.put("id", "id");
+//        attributes.put("key", "key");
+//        attributes.put("modified", "modified");
+//        attributes.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+//        attributes.put("modifiedBy", "who");
+//        attributes.put("size", "100");
+//        attributes.put("description", "test");
+//        attributes.put("fileUrl", "c:\\cfg.json");
+//
+//        DocumentMeta meta = DocumentMeta.create(attributes);
+//        assertTrue(meta.getId().equals("id"));
+//        assertTrue(meta.getKey().equals("key"));
+//        assertTrue(meta.getModified().equals("modified"));
+//        assertTrue(meta.getModifiedFormat().equals("yyyy-MM-dd HH:mm:ss.SSS"));
+//        assertTrue(meta.getModifiedBy().equals("who"));
+//        assertTrue(meta.getSize() == 100);
+//        assertTrue(meta.getDescription().equals("test"));
+//        assertTrue(meta.getFileUrl().equals("c:\\cfg.json"));
+//    }
+
+    public void testDeserializeFromStringObjectHashMap() {
+        Map<String, Object> attributes = new HashMap<>();
         attributes.put("id", "id");
         attributes.put("key", "key");
         attributes.put("modified", "modified");
         attributes.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
         attributes.put("modifiedBy", "who");
-        attributes.put("size", "100");
+        attributes.put("size", 100);
         attributes.put("description", "test");
         attributes.put("fileUrl", "c:\\cfg.json");
 
@@ -83,30 +104,8 @@ public class DocumentMetaTest
         assertTrue(meta.getFileUrl().equals("c:\\cfg.json"));
     }
 
-    public void testDeserializeFromStringObjectHashMap() {
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("id", "id");
-        attributes.put("key", "key");
-        attributes.put("modified", "modified");
-        attributes.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
-        attributes.put("modifiedBy", "who");
-        attributes.put("size", 100);
-        attributes.put("description", "test");
-        attributes.put("fileUrl", "c:\\cfg.json");
-
-        DocumentMeta meta = DocumentMeta.create2(attributes);
-        assertTrue(meta.getId().equals("id"));
-        assertTrue(meta.getKey().equals("key"));
-        assertTrue(meta.getModified().equals("modified"));
-        assertTrue(meta.getModifiedFormat().equals("yyyy-MM-dd HH:mm:ss.SSS"));
-        assertTrue(meta.getModifiedBy().equals("who"));
-        assertTrue(meta.getSize() == 100);
-        assertTrue(meta.getDescription().equals("test"));
-        assertTrue(meta.getFileUrl().equals("c:\\cfg.json"));
-    }
-
     public void testDocumentMetaCanDeserializeFromString() {
-        Map<String, String> attributes = new HashMap<>();
+        Map<String, Object> attributes = new HashMap<>();
         attributes.put("id", "id");
         attributes.put("key", "key");
         attributes.put("modified", "2000-01-01 00:00:00:000");

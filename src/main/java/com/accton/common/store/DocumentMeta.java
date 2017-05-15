@@ -6,39 +6,45 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class DocumentMeta {
-    // TODO: move optional attribute into attributes
-
-    // TODO: create a `getAttribute(name)` function to access all data member
     private JSONObject object;
 
-    public static DocumentMeta create(Map<String, String> attrs) {
+//    public static DocumentMeta create(Map<String, String> attrs) {
+//        DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
+//
+//        for (Map.Entry<String, String> entry : attrs.entrySet()) {
+//            docMeta.put(entry.getKey(), entry.getValue());
+//        }
+//
+//        return docMeta;
+//    }
+
+    public static DocumentMeta create(Map<String, Object> map) {
         DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
 
-        for (Map.Entry<String, String> entry : attrs.entrySet()) {
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
             docMeta.put(entry.getKey(), entry.getValue());
         }
 
         return docMeta;
     }
 
-    public static DocumentMeta create2(Map<String, Object> attrs) {
-        DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
-
-        for (Map.Entry<String, Object> entry : attrs.entrySet()) {
-            docMeta.put(entry.getKey(), entry.getValue());
-        }
-
-        return docMeta;
-    }
-
-    public static DocumentMeta create(String string) {
+    public static DocumentMeta create(String jsonString) {
         try {
-            JSONObject jsonObject = new JSONObject(string);
+            JSONObject jsonObject = new JSONObject(jsonString);
             return new DocumentMeta(jsonObject);
         } catch (JSONException e) {
             return null;
         }
     }
+
+//    public static DocumentMeta create(Object object) {
+//        try {
+//            JSONObject jsonObject = new JSONObject(object);
+//            return new DocumentMeta(jsonObject);
+//        } catch (JSONException e) {
+//            return null;
+//        }
+//    }
 
     private DocumentMeta(JSONObject jsonObject) {
         object = jsonObject;

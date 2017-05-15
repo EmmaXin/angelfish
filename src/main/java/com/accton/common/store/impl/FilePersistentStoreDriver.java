@@ -40,7 +40,7 @@ public class FilePersistentStoreDriver implements PersistentStoreDriver {
     }
 
     public DocumentMeta save(String key, byte[] value, Map<String, Object> meta) throws IllegalArgumentException, IOException {
-        DocumentMeta documentMeta = DocumentMeta.create2(meta);
+        DocumentMeta documentMeta = DocumentMeta.create(meta);
         return save(key, value, documentMeta);
     }
 

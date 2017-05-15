@@ -290,7 +290,7 @@ public class PersistentStoreDriverDriverManagerTest
             fail();
         }
 
-        PersistentStoreManager mgr = new PersistentStoreManager("foo", /*new FilePersistentStoreDriver(this.cwd)*/ filePersistentStoreDriver);
+        PersistentStoreManager mgr = new PersistentStoreManager("foo", filePersistentStoreDriver);
 
         byte[] value = "{\"hello\": \"world\"}".getBytes();
 
@@ -359,5 +359,43 @@ public class PersistentStoreDriverDriverManagerTest
 
         byte[] currentOuput = mgr.getCurrentVersionContent();
         assertTrue(Arrays.equals(currentOuput, files.get(0)));
+    }
+
+    public void testInit() {
+        PersistentStoreDriver filePersistentStoreDriver = (FilePersistentStoreDriver)createObject("com.accton.common.store.impl.FilePersistentStoreDriver", this.cwd);
+        if (filePersistentStoreDriver == null) {
+            fail();
+        }
+
+        PersistentStoreManager mgr = new PersistentStoreManager("foo", filePersistentStoreDriver);
+
+        byte[] value = "{\"hello\": \"world\"}".getBytes();
+
+        try {
+            mgr.save(value, "test version");
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+            fail();
+        }
+
+        PersistentStoreManager mgr2 = new PersistentStoreManager("foo", filePersistentStoreDriver);
+
+        try {
+            mgr2.init();
+        } catch (IllegalArgumentException | IOException e) {
+            System.out.println(e.getMessage());
+            fail();
+        }
+
+        DocumentMeta[] versionHistory = mgr2.getAllVersions("foo.current");
+
+        assertTrue(versionHistory.length == 1);
+        assertTrue(versionHistory[0].getSize() == value.length);
+
+        String currentVerId = mgr2.getCurrentVersionId();
+        assertTrue(currentVerId.equals(versionHistory[0].getId()));
+
+        byte[] currentOuput = mgr2.getCurrentVersionContent();
+        assertTrue(Arrays.equals(currentOuput, value));
     }
 }

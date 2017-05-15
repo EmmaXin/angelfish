@@ -5,6 +5,7 @@ import org.json.JSONException;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -209,6 +210,12 @@ class BackupService {
                     ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
                     l.add(0, doc);
                     lastSaveDate.put(doc.getKey(), current);
+
+                    if (doc.getDescription() != null) {
+                        ArrayList<String> descriptions = new ArrayList<String>();
+                        descriptions.add(doc.getDescription());
+                        l.get(0).put("descriptions", descriptions);
+                    }
                 } else {
                     long diffMillis = current.getTime() - lastSaveDate.get(doc.getKey()).getTime();
                     if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
@@ -216,12 +223,28 @@ class BackupService {
                         ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
                         l.add(0, doc);
                         lastSaveDate.put(doc.getKey(), current);
+
+                        if (doc.getDescription() != null) {
+                            ArrayList<String> descriptions = new ArrayList<String>();
+                            descriptions.add(doc.getDescription());
+                            l.get(0).put("descriptions", descriptions);
+                        }
                     } else {
                         ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
-                        l.remove(0);
+                        DocumentMeta old = l.remove(0);
+
                         l.add(0, doc);
                         //allVersions.remove(0);
                         //allVersions.add(0, doc);
+
+                        Object obj = old.get("descriptions");
+                        if (obj instanceof ArrayList) {
+                            ArrayList<String> descriptions = (ArrayList<String>)obj;
+                            if (doc.getDescription() != null) {
+                                descriptions.add(0, doc.getDescription());
+                            }
+                            doc.put("descriptions", descriptions);
+                        }
                     }
                 }
             } catch (ParseException e) {
@@ -243,37 +266,8 @@ class BackupService {
     // TODO: Add getKeys() : string[]
 
     public DocumentMeta[] getAllVersions(String key) {
-        ArrayList<DocumentMeta> historyList  = this.versionHistoryCache.getHistoryList();
-        ArrayList<DocumentMeta> allVersions = new ArrayList<>();
-        Date lastSaveDate = null;
-
-        for (ListIterator iterator = historyList.listIterator(historyList.size()); iterator.hasPrevious();) {
-            DocumentMeta doc = (DocumentMeta) iterator.previous();
-
-            if (key.equals(doc.getKey())) {
-                try {
-                    Date current = BackupService.getDocumentModifiedDate(doc);
-
-                    if (lastSaveDate == null) {
-                        allVersions.add(0, doc);
-                        lastSaveDate = current;
-                    } else {
-                        long diffMillis = current.getTime() - lastSaveDate.getTime();
-                        if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
-                            allVersions.add(0, doc);
-                            lastSaveDate = current;
-                        } else {
-                            allVersions.remove(0);
-                            allVersions.add(0, doc);
-                        }
-                    }
-                } catch (ParseException e) {
-                    // TODO: log bad record
-                }
-            }
-        }
-
-        return allVersions.toArray(new DocumentMeta[0]);
+        Map<String, DocumentMeta[]> allVersions = getAllVersions();
+        return allVersions.getOrDefault(key, new DocumentMeta[0]);
     }
 
     static Date getDocumentModifiedDate(DocumentMeta documentMeta) throws ParseException {
@@ -389,7 +383,6 @@ public class PersistentStoreManager {
 
         // TODO: meta file should have version control
 
-        // TODO: id is timeStamp, it will change each saving operation. NOT id.
         metaClone.putIfAbsent("version", "1.0");
         metaClone.putIfAbsent("id", id);
         metaClone.putIfAbsent("key", key);

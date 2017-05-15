@@ -175,6 +175,83 @@ public class PersistentStoreDriverDriverManagerTest
         }
     }
 
+    public void testReturnDescriptions() {
+        PersistentStoreDriver persistentStoreDriver = new FilePersistentStoreDriver("abc");
+        BackupService backupService = new BackupService("abc", persistentStoreDriver);
+
+        String key = "test.current";
+        DocumentMeta[] allVersions;
+
+        try {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("description", "version 1");
+            PersistentStoreManager.save(key, "version 1".getBytes(),
+                    meta,
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:00:00.000"),
+                    persistentStoreDriver);
+            backupService.dataChanged(key);
+
+            allVersions = backupService.getAllVersions(key);
+            assertTrue(allVersions.length == 1);
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[0].getKey().equals(key));
+
+            Object obj;
+
+            obj = allVersions[0].get("descriptions");
+            assertTrue(obj instanceof ArrayList);
+            assertTrue(((ArrayList<String>) obj).size() == 1);
+            assertTrue(((ArrayList<String>) obj).get(0).equals("version 1"));
+
+            //String jsonString = allVersions[0].toJsonString();
+
+            meta.put("description", "version 2");
+            PersistentStoreManager.save(key, "version 2".getBytes(),
+                    meta,
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:10:00.000"),
+                    persistentStoreDriver);
+            backupService.dataChanged(key);
+
+            allVersions = backupService.getAllVersions(key);
+            assertTrue(allVersions.length == 2);
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:10:00.000"));
+            assertTrue(allVersions[0].getKey().equals(key));
+
+            obj = allVersions[0].get("descriptions");
+            assertTrue(obj instanceof ArrayList);
+            assertTrue(((ArrayList<String>) obj).size() == 1);
+            assertTrue(((ArrayList<String>) obj).get(0).equals("version 2"));
+
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[1].getKey().equals(key));
+
+            //
+            meta.put("description", "internal version 2");
+            PersistentStoreManager.save(key, "internal version 2".getBytes(),
+                    meta,
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:11:00.000"),
+                    persistentStoreDriver);
+            backupService.dataChanged(key);
+
+            allVersions = backupService.getAllVersions(key);
+            assertTrue(allVersions.length == 2);
+            assertTrue(allVersions[0].getModified().equals("2017-05-01 01:11:00.000")); // Last version
+            assertTrue(allVersions[0].getKey().equals(key));
+
+            obj = allVersions[0].get("descriptions");
+            assertTrue(obj instanceof ArrayList);
+            assertTrue(((ArrayList<String>) obj).size() == 2);
+            assertTrue(((ArrayList<String>) obj).get(0).equals("internal version 2"));
+            assertTrue(((ArrayList<String>) obj).get(1).equals("version 2"));
+
+            assertTrue(allVersions[1].getModified().equals("2017-05-01 01:00:00.000"));
+            assertTrue(allVersions[1].getKey().equals(key));
+        } catch (ParseException | IOException e) {
+            System.out.println(e.getMessage());
+            fail();
+        }
+    }
+
     public void testGetAllKeysVersion() {
         PersistentStoreDriver persistentStoreDriver = new FilePersistentStoreDriver("abc");
         BackupService backupService = new BackupService("abc", persistentStoreDriver);

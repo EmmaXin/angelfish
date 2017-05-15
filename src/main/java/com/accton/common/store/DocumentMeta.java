@@ -102,6 +102,10 @@ public class DocumentMeta {
         return this;
     }
 
+    public Object get(String key) {
+        return object.opt(key);
+    }
+
     public String getString(String key) {
         return object.optString(key);
     }

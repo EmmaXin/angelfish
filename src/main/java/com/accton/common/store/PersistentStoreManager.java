@@ -179,8 +179,7 @@ class BackupService {
     }
 
     // TODO: using async interface
-    public Map.Entry<byte[], DocumentMeta> find(String versionId)
-            throws IllegalArgumentException, IOException {
+    public Map.Entry<byte[], DocumentMeta> find(String versionId) throws IllegalArgumentException, IOException {
         DocumentMeta docMeta = this.versionHistoryCache.find(versionId);
 
         if (docMeta == null) {
@@ -324,8 +323,7 @@ public class PersistentStoreManager {
         this.backupService.dataChanged(this.packageName + ".current");
     }
 
-    public byte[] restore(String versionId)
-            throws IllegalArgumentException, IOException {
+    public byte[] restore(String versionId) throws IllegalArgumentException, IOException {
         try {
             Map.Entry<byte[], DocumentMeta> result = this.backupService.find(versionId);
             this.currentDoc = this.persistentStoreDriver.save(this.packageName + ".current", result.getKey(), result.getValue());

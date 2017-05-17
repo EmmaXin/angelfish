@@ -4,6 +4,8 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -102,6 +104,38 @@ public class DocumentMetaTest
         assertTrue(meta.getSize() == 100);
         assertTrue(meta.getDescription().equals("test"));
         assertTrue(meta.getFileUrl().equals("c:\\cfg.json"));
+
+        assertTrue(Arrays.asList(meta.keys()).contains("id"));
+        assertTrue(Arrays.asList(meta.keys()).contains("key"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modified"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modifiedFormat"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modifiedBy"));
+        assertTrue(Arrays.asList(meta.keys()).contains("size"));
+        assertTrue(Arrays.asList(meta.keys()).contains("description"));
+        assertTrue(Arrays.asList(meta.keys()).contains("fileUrl"));
+    }
+
+    public void testGetKeys() {
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("id", "id");
+        attributes.put("key", "key");
+        attributes.put("modified", "modified");
+        attributes.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+        attributes.put("modifiedBy", "who");
+        attributes.put("size", 100);
+        attributes.put("description", "test");
+        attributes.put("fileUrl", "c:\\cfg.json");
+
+        DocumentMeta meta = DocumentMeta.create(attributes);
+
+        assertTrue(Arrays.asList(meta.keys()).contains("id"));
+        assertTrue(Arrays.asList(meta.keys()).contains("key"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modified"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modifiedFormat"));
+        assertTrue(Arrays.asList(meta.keys()).contains("modifiedBy"));
+        assertTrue(Arrays.asList(meta.keys()).contains("size"));
+        assertTrue(Arrays.asList(meta.keys()).contains("description"));
+        assertTrue(Arrays.asList(meta.keys()).contains("fileUrl"));
     }
 
     public void testDocumentMetaCanDeserializeFromString() {

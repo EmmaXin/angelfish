@@ -78,7 +78,10 @@ public class PersistentStoreDriverDriverManagerTest
         DocumentMeta[] allVersions;
 
         try {
-            PersistentStoreManager.save(key, "version 1".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:00:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "version 1".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:00:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);
@@ -86,7 +89,10 @@ public class PersistentStoreDriverDriverManagerTest
             assertTrue(allVersions[0].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[0].getKey().equals(key));
 
-            PersistentStoreManager.save(key, "version 2".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:10:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "version 2".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:10:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);
@@ -96,7 +102,10 @@ public class PersistentStoreDriverDriverManagerTest
             assertTrue(allVersions[1].getModified().equals("2017-05-01 01:00:00.000"));
             assertTrue(allVersions[1].getKey().equals(key));
 
-            PersistentStoreManager.save(key, "internal version 1".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:20:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "internal version 1".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:20:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged("test.current");
 
             allVersions = backupService.getAllVersions(key);
@@ -110,7 +119,10 @@ public class PersistentStoreDriverDriverManagerTest
 
             //
 
-            PersistentStoreManager.save(key, "internal version 2".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:21:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "internal version 2".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:21:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);
@@ -124,7 +136,10 @@ public class PersistentStoreDriverDriverManagerTest
 
             //
 
-            PersistentStoreManager.save(key, "internal version 3".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:29:59.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "internal version 3".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:29:59.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);
@@ -138,7 +153,10 @@ public class PersistentStoreDriverDriverManagerTest
 
             //
 
-            PersistentStoreManager.save(key, "new version".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:30:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "new version".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:30:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);
@@ -154,7 +172,10 @@ public class PersistentStoreDriverDriverManagerTest
 
             //
 
-            PersistentStoreManager.save(key, "new version".getBytes(), (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:40:00.000"), persistentStoreDriver);
+            PersistentStoreManager.save(key,
+                    "new version".getBytes(),
+                    (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse("2017-05-01 01:40:00.000"),
+                    persistentStoreDriver);
             backupService.dataChanged(key);
 
             allVersions = backupService.getAllVersions(key);

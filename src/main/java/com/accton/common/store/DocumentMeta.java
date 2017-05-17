@@ -102,6 +102,10 @@ public class DocumentMeta {
         return this;
     }
 
+    public String[] keys() {
+        return object.keySet().toArray(new String[0]);
+    }
+
     public Object get(String key) {
         return object.opt(key);
     }

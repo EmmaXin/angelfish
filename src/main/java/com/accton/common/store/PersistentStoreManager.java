@@ -1,11 +1,18 @@
 package com.accton.common.store;
 
-import org.json.JSONArray;
-import org.json.JSONException;
+//import com.fasterxml.jackson.databind.node.ArrayNode;
+//import org.json.JSONArray;
+//import org.json.JSONException;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
+//import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -123,17 +130,37 @@ class BackupService {
         byte[] bytes =  data.getKey();
         String jsonString = new String(bytes, StandardCharsets.UTF_8);
 
+        //try {
+//            JSONArray array = new JSONArray(jsonString);
+            //ArrayNode array = JsonNodeFactory.instance.arrayNode();
+
         try {
-            JSONArray array = new JSONArray(jsonString);
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode actualObj = mapper.readTree(jsonString);
+            if (!actualObj.isArray()) {
+                return;
+            }
+
+            ArrayNode array = ((ArrayNode) actualObj);
 
             this.versionHistoryCache = new VersionHistoryCache();
-            for (Object item : array.toList()) {
-                if (item instanceof Map) {
-                    DocumentMeta documentMeta = DocumentMeta.create((Map<String, Object>) item);
+            //for (Object item : array.toList()) {
+            for (Iterator<JsonNode> iterator = array.iterator(); iterator.hasNext();) {
+                JsonNode item = iterator.next();
+
+//                if (item instanceof Map) {
+//                    DocumentMeta documentMeta = DocumentMeta.create((Map<String, Object>) item);
+//                    this.versionHistoryCache.add(documentMeta);
+//                }
+                if (item instanceof ObjectNode) {
+                    DocumentMeta documentMeta = DocumentMeta.create((ObjectNode)item);
                     this.versionHistoryCache.add(documentMeta);
                 }
             }
-        } catch (JSONException e) {
+        //} catch (JSONException e) {
+        //    ;
+        //}
+        } catch (IOException e) {
             ;
         }
     }
@@ -210,11 +237,11 @@ class BackupService {
                     l.add(0, doc);
                     lastSaveDate.put(doc.getKey(), current);
 
-                    if (doc.getDescription() != null) {
-                        ArrayList<String> descriptions = new ArrayList<String>();
-                        descriptions.add(doc.getDescription());
-                        l.get(0).put("descriptions", descriptions);
-                    }
+//                    if (doc.getDescription() != null) {
+//                        ArrayList<String> descriptions = new ArrayList<String>();
+//                        descriptions.add(doc.getDescription());
+//                        l.get(0).put("descriptions", descriptions);
+//                    }
                 } else {
                     long diffMillis = current.getTime() - lastSaveDate.get(doc.getKey()).getTime();
                     if (this.autoSaveIntervalMilliSeconds <= diffMillis) {
@@ -223,11 +250,11 @@ class BackupService {
                         l.add(0, doc);
                         lastSaveDate.put(doc.getKey(), current);
 
-                        if (doc.getDescription() != null) {
-                            ArrayList<String> descriptions = new ArrayList<String>();
-                            descriptions.add(doc.getDescription());
-                            l.get(0).put("descriptions", descriptions);
-                        }
+//                        if (doc.getDescription() != null) {
+//                            ArrayList<String> descriptions = new ArrayList<String>();
+//                            descriptions.add(doc.getDescription());
+//                            l.get(0).put("descriptions", descriptions);
+//                        }
                     } else {
                         ArrayList<DocumentMeta> l = allVersions.get(doc.getKey());
                         DocumentMeta old = l.remove(0);
@@ -236,14 +263,20 @@ class BackupService {
                         //allVersions.remove(0);
                         //allVersions.add(0, doc);
 
-                        Object obj = old.get("descriptions");
-                        if (obj instanceof ArrayList) {
-                            ArrayList<String> descriptions = (ArrayList<String>)obj;
-                            if (doc.getDescription() != null) {
-                                descriptions.add(0, doc.getDescription());
-                            }
-                            doc.put("descriptions", descriptions);
-                        }
+//                        Object obj = old.get("descriptions");
+//                        if (obj instanceof ArrayList) {
+//                            ArrayList<String> descriptions = (ArrayList<String>)obj;
+//                            if (doc.getDescription() != null) {
+//                                descriptions.add(0, doc.getDescription());
+//                            }
+//                            doc.put("descriptions", descriptions);
+//                        } else if (obj instanceof ArrayNode) {
+//                            ArrayNode descriptions = (ArrayNode) obj;
+//                            if (doc.getDescription() != null) {
+//                                descriptions.add(0, doc.getDescription());
+//                            }
+//                            doc.put("descriptions", descriptions);
+//                        }
                     }
                 }
             } catch (ParseException e) {
@@ -306,7 +339,7 @@ public class PersistentStoreManager {
 
     // TODO: accept string format content
     // TODO: accept json format content
-    public void save(byte[] content, String description) throws IOException {
+    public void save(byte[] content) throws IOException {
         Calendar calendar = this.calendarInstance;
         if (this.calendarInstance == null) {
             calendar = Calendar.getInstance();
@@ -315,9 +348,9 @@ public class PersistentStoreManager {
         Date now = calendar.getTime();
 
         Map<String, Object> options = new HashMap<>();
-        if (description != null) {
-            options.put("description", description);
-        }
+//        if (description != null) {
+//            options.put("description", description);
+//        }
 
         this.currentDoc = save(this.packageName + ".current", content, options, now, this.persistentStoreDriver);
         this.backupService.dataChanged(this.packageName + ".current");

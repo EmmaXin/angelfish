@@ -1,15 +1,19 @@
 package com.accton.common.store;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.json.*;
+//import org.json.*;
 
 /**
  * Unit test for simple App.
@@ -145,7 +149,7 @@ public class DocumentMetaTest
         attributes.put("modified", "2000-01-01 00:00:00:000");
         attributes.put("modifiedFormat", "yyyy-MM-dd HH:mm:ss.SSS");
         attributes.put("modifiedBy", "who");
-        attributes.put("size", "100");
+        attributes.put("size", 100);
         attributes.put("description", "test");
         attributes.put("fileUrl", "C:\\cfg.json");
 
@@ -161,17 +165,39 @@ public class DocumentMetaTest
 
         String string = meta.toJsonString();
 
-        JSONObject jsonObject = new JSONObject(string);
-        assertTrue(jsonObject.getString("id").equals("id"));
-        assertTrue(jsonObject.getString("key").equals("key"));
-        assertTrue(jsonObject.getString("modified").equals("2000-01-01 00:00:00:000"));
-        assertTrue(jsonObject.getString("modifiedFormat").equals("yyyy-MM-dd HH:mm:ss.SSS"));
-        assertTrue(jsonObject.getString("modifiedBy").equals("who"));
-        assertTrue(jsonObject.getInt("size") == 100);
-        assertTrue(jsonObject.getString("description").equals("test"));
-        assertTrue(jsonObject.getString("fileUrl").equals("C:\\cfg.json"));
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonObject = mapper.readTree(string);
+            if (!jsonObject.isObject()) {
+                fail();
+            }
 
-        String abc = jsonObject.optString("abc");
-        assertTrue(true);
+            assertTrue(jsonObject.get("id").textValue().equals("id"));
+            assertTrue(jsonObject.get("key").textValue().equals("key"));
+            assertTrue(jsonObject.get("modified").textValue().equals("2000-01-01 00:00:00:000"));
+            assertTrue(jsonObject.get("modifiedFormat").textValue().equals("yyyy-MM-dd HH:mm:ss.SSS"));
+            assertTrue(jsonObject.get("modifiedBy").textValue().equals("who"));
+            assertTrue(jsonObject.get("size").intValue() == 100);
+            assertTrue(jsonObject.get("description").textValue().equals("test"));
+            assertTrue(jsonObject.get("fileUrl").textValue().equals("C:\\cfg.json"));
+
+            JsonNode abc = jsonObject.get("abc");
+            assertTrue(abc == null);
+        } catch (IOException e) {
+            fail();
+        }
+
+//        JSONObject jsonObject = new JSONObject(string);
+//        assertTrue(jsonObject.getString("id").equals("id"));
+//        assertTrue(jsonObject.getString("key").equals("key"));
+//        assertTrue(jsonObject.getString("modified").equals("2000-01-01 00:00:00:000"));
+//        assertTrue(jsonObject.getString("modifiedFormat").equals("yyyy-MM-dd HH:mm:ss.SSS"));
+//        assertTrue(jsonObject.getString("modifiedBy").equals("who"));
+//        assertTrue(jsonObject.getInt("size") == 100);
+//        assertTrue(jsonObject.getString("description").equals("test"));
+//        assertTrue(jsonObject.getString("fileUrl").equals("C:\\cfg.json"));
+//
+//        String abc = jsonObject.optString("abc");
+//        assertTrue(true);
     }
 }

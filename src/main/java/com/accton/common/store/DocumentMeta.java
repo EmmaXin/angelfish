@@ -14,7 +14,7 @@ import java.util.Map;
 
 public class DocumentMeta {
 //    private JSONObject object;
-    private ObjectNode object2;
+    private ObjectNode object;
 
 //    public static DocumentMeta create(Map<String, String> attrs) {
 //        DocumentMeta docMeta = new DocumentMeta("", "", -1, "");
@@ -77,12 +77,12 @@ public class DocumentMeta {
 
     private DocumentMeta(ObjectNode objectNode) {
 //        object = jsonObject;
-        object2 = objectNode;
+        object = objectNode;
     }
 
     public DocumentMeta(String id, String modified, Integer size, String fileUrl) {
 //        object = new JSONObject();
-        object2 = JsonNodeFactory.instance.objectNode();
+        object = JsonNodeFactory.instance.objectNode();
 
         put("id", id);
         put("modified", modified);
@@ -141,7 +141,7 @@ public class DocumentMeta {
         ObjectMapper mapper = new ObjectMapper();
 
         JsonNode jsonNode = mapper.convertValue(value, JsonNode.class);
-        object2.put(key, jsonNode);
+        object.put(key, jsonNode);
 
         return this;
     }
@@ -151,7 +151,7 @@ public class DocumentMeta {
 
         ArrayList<String> arrayList = new ArrayList<>();
 
-        for (Iterator<String> iterator = object2.fieldNames(); iterator.hasNext();) {
+        for (Iterator<String> iterator = object.fieldNames(); iterator.hasNext();) {
             String key = iterator.next();
             arrayList.add(key);
         }
@@ -161,13 +161,13 @@ public class DocumentMeta {
 
     public Object get(String key) {
 //        return object.opt(key);
-        return object2.get(key);
+        return object.get(key);
     }
 
     public String getString(String key) {
         //return object.optString(key);
 
-//        JsonNode value = object2.get(key);
+//        JsonNode value = object.get(key);
 //
 //        if (value == null) {
 //            return "";
@@ -179,7 +179,7 @@ public class DocumentMeta {
 
     public String getString(String key, String defaultValue) {
         //return object.optString(key, defaultValue);
-        JsonNode value = object2.get(key);
+        JsonNode value = object.get(key);
 
         if (value == null) {
             return defaultValue;
@@ -193,7 +193,7 @@ public class DocumentMeta {
     }
 
     public Integer getInt(String key, Integer defaultValue) {
-        JsonNode value = object2.get(key);
+        JsonNode value = object.get(key);
 
         if (value == null) {
             return defaultValue;
@@ -204,6 +204,6 @@ public class DocumentMeta {
 
     public String toJsonString() {
         //return object.toString(4);
-        return object2.toString();
+        return object.toString();
     }
 }

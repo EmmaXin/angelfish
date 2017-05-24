@@ -55,6 +55,8 @@ class MaxSchemaValidationException extends SchemaValidationException {
 
 // Schema
 class Model {
+    static final int NO_LIMIT = -1;
+
     public enum Type {
         STRING,
         Number,
@@ -78,6 +80,20 @@ class Model {
         this.required = required;
         this.min = min;
         this.max = max;
+    }
+
+    Model(String name, Type type, boolean required, int min, int max) {
+        this.name = name;
+        this.type = type;
+        //this.index = index;
+        //this.unique = unique;
+        this.required = required;
+        this.min = min;
+        this.max = max;
+    }
+
+    Model(String name, Type type, boolean required) {
+        this(name, type, required, NO_LIMIT, NO_LIMIT);
     }
 
     public boolean validateRequired(JsonNode value) {
@@ -174,25 +190,50 @@ class User {
     private static final String CREATED = "created";
     private static final String LAST_PASSWORD_MODIFIED = "lastPasswordModified";
 
+    public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+
+    public static final int MIN_LENGTH_OF_USERNAME = 3;
+    public static final int MAX_LENGTH_OF_USERNAME = 10;
+
+    public static final int MIN_LENGTH_OF_PASSWORD = 3;
+    public static final int MAX_LENGTH_OF_PASSWORD = 10;
+
     private static Map<String, Model> model = createModel();
     private static Map<String, Model> createModel() {
         Map<String, Model> model = new HashMap<>();
 
-        model.put(USERNAME, new Model(USERNAME, Model.Type.STRING, true, true, true, 3, 10));
-        model.put(PASSWORD, new Model(PASSWORD, Model.Type.STRING, false, true, true, 3, 10));
-        model.put(CREATED, new Model(CREATED, Model.Type.DATE, false, false, false, -1, -1));
-        model.put(LAST_PASSWORD_MODIFIED, new Model(LAST_PASSWORD_MODIFIED, Model.Type.DATE, false, false, false, -1, -1));
+        model.put(USERNAME, new Model(USERNAME,
+                Model.Type.STRING,
+                true,
+                MIN_LENGTH_OF_USERNAME,
+                MAX_LENGTH_OF_USERNAME));
+
+        model.put(PASSWORD, new Model(PASSWORD,
+                Model.Type.STRING,
+                true,
+                MIN_LENGTH_OF_PASSWORD,
+                MAX_LENGTH_OF_PASSWORD));
+
+        model.put(CREATED, new Model(CREATED,
+                Model.Type.DATE,
+                false));
+
+        model.put(LAST_PASSWORD_MODIFIED, new Model(LAST_PASSWORD_MODIFIED,
+                Model.Type.DATE,
+                false));
 
         return model;
     }
 
     public static Date date = Calendar.getInstance().getTime();
 
-    private ObjectNode object;
+    private String username;
+    private String password;
+    private Date created;
+    private Date lastPasswordModified;
 
     private User() {
-        object = JsonNodeFactory.instance.objectNode();
-        set(CREATED, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(date));
+        created = new Date(date.getTime());
     }
 
     public User(String username, String password) {
@@ -219,74 +260,66 @@ class User {
 
         User user = new User();
 
-        user.set(USERNAME, objectNode.get(USERNAME).textValue());
-        user.set(PASSWORD, objectNode.get(PASSWORD).textValue());
+        user.username = objectNode.get(USERNAME).textValue();
+        user.password = objectNode.get(PASSWORD).textValue();
 
         if (objectNode.get(CREATED) != null) {
-            user.set(CREATED, objectNode.get(CREATED).textValue());
+            user.created = parseDateString(objectNode.get(CREATED).textValue());
+        }
+
+        if (user.created == null) {
+            user.created = new Date(date.getTime());
         }
 
         if (objectNode.get(LAST_PASSWORD_MODIFIED) != null) {
-            user.set(LAST_PASSWORD_MODIFIED, objectNode.get(LAST_PASSWORD_MODIFIED).textValue());
+            user.lastPasswordModified = parseDateString(objectNode.get(LAST_PASSWORD_MODIFIED).textValue());
+        }
+
+        if (user.lastPasswordModified == null) {
+            user.lastPasswordModified = new Date(date.getTime());
         }
 
         return user;
     }
 
-    private void set(String fieldName, Object value) {
-        if (value != null) {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonNode = mapper.convertValue(value, JsonNode.class);
-
-            object.put(fieldName, jsonNode);
-        } else {
-            object.remove(fieldName);
+    private static Date parseDateString(String str) {
+        try {
+            return (new SimpleDateFormat(DATE_FORMAT)).parse(str);
+        } catch (ParseException e) {
+            return null;
         }
     }
 
     public void setUsername(String username) {
-        set(USERNAME, username);
+        this.username = username;
     }
 
     public String getUsername() {
-        return object.get(USERNAME).textValue();
+        return this.username;
     }
 
     public void setPassword(String password) {
-        set(PASSWORD, password);
-        set(LAST_PASSWORD_MODIFIED, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(date));
+        this.password = password;
+        this.lastPasswordModified = new Date(date.getTime());
     }
 
     public String getPassword() {
-        JsonNode jsonNode = object.get(PASSWORD);
-
-        if (jsonNode != null) {
-            return jsonNode.textValue();
-        }
-
-        return null;
+        return password;
     }
 
     public Date getCreated() {
-        String str = object.get(CREATED).textValue();
-        try {
-            return (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse(str);
-        } catch (ParseException e) {
-            return null;
-        }
+        return created;
     }
 
     public Date getLastPasswordModified() {
-        String str = object.get(LAST_PASSWORD_MODIFIED).textValue();
-        try {
-            return (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse(str);
-        } catch (ParseException e) {
-            return null;
-        }
+        return lastPasswordModified;
     }
 
     public boolean equals(User other) {
-        return object.equals(other.object);
+        return username.equals(other.username)
+                && password.equals(other.password)
+                && created.equals(other.created)
+                && lastPasswordModified.equals(other.lastPasswordModified);
     }
 }
 
@@ -302,7 +335,6 @@ class UserConfigSerializer extends StdSerializer<UserConfig> {
     @Override
     public void serialize(UserConfig value, JsonGenerator jgen, SerializerProvider provider)
             throws IOException, JsonProcessingException {
-
         jgen.writeStartObject();
         jgen.writeArrayFieldStart("users");
 
@@ -314,15 +346,6 @@ class UserConfigSerializer extends StdSerializer<UserConfig> {
 
         jgen.writeEndArray();
         jgen.writeEndObject();
-
-//        jgen.writeStartObject();
-//        jgen.writeStringField("username", value.getUsername());
-//        jgen.writeStringField("password", value.getPassword());
-//        jgen.writeStringField("created",
-//                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(value.getCreated()));
-//        jgen.writeStringField("lastPasswordModified",
-//                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(value.getLastPasswordModified()));
-//        jgen.writeEndObject();
     }
 }
 
@@ -395,6 +418,7 @@ class UserConfig {
         users.add(new User(username, password));
     }
 
+    @Deprecated
     public void addUser(ObjectNode user) {
         JsonNode username = user.get("username");
         JsonNode password = user.get("password");
@@ -786,8 +810,6 @@ public class FooTest
             cfg.addUser("myuser", "mypassword");
             cfg.addUser("auser", "apassword");
 
-            //String string = cfg.toJSON();
-
             ObjectMapper mapper = new ObjectMapper();
 
             String string = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(cfg);
@@ -822,8 +844,6 @@ public class FooTest
         try {
             cfg.addUser("myuser", "mypassword");
             cfg.addUser("auser", "apassword");
-
-            //String string = cfg.toJSON();
 
             ObjectMapper mapper = new ObjectMapper();
 

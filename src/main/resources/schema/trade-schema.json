@@ -1,0 +1,17 @@
+{
+  "title": "Daily Trade Transaction",
+  "description": "Daily Trade Transaction",
+  "type": "object",
+  "properties": {
+    "id":{
+      "type":"string"
+    },
+    "amount":{
+      "type":"number"
+    },
+    "currency":{
+      "type":"string",
+      "enum":["INR", "HKD", "EUR", "USD"]
+    }
+  }
+}

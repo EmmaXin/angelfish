@@ -1,6 +1,6 @@
 package com.accton.common.store;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -12,6 +12,15 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import com.github.fge.jackson.JsonLoader;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import com.github.fge.jsonschema.core.report.ProcessingMessage;
+import com.github.fge.jsonschema.core.report.ProcessingReport;
+import com.github.fge.jsonschema.main.JsonSchemaFactory;
+import com.github.fge.jsonschema.main.JsonValidator;
+import com.google.gson.Gson;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -19,9 +28,250 @@ import junit.framework.TestSuite;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
+class JsonSchemaManager {
+    private final JsonValidator validator = JsonSchemaFactory.byDefault().getValidator();
+    private Map<Class<?>, JsonNode> jsonNodeMap = new HashMap<>();
+
+    public void load(Class<?> className, String schema) throws IOException {
+        JsonNode schemaFromDisk = JsonLoader.fromURL(this.getClass().getResource(schema));
+        jsonNodeMap.put(className, schemaFromDisk);
+    }
+
+
+    public ProcessingReport check(Class<?> className, JsonNode toBeValidate) {
+
+        ProcessingReport report = null;
+        try {
+            report = validator.validate(jsonNodeMap.get(className), toBeValidate);
+            return report;
+//            if (!report.isSuccess()) {
+//                StringBuilder stringBuilder = new StringBuilder();
+//                stringBuilder.append(" Oops!! failed JSON validation ");
+//                stringBuilder.append(":").append("\n");
+//                List<ProcessingMessage> messages = Lists.newArrayList(report);
+//
+//                ObjectMapper mapper = new ObjectMapper();
+//                ArrayNode errors = mapper.createArrayNode();
+//
+//                for (int i = 0; i < messages.size(); i++) {
+//                    stringBuilder.append("- ");
+//                    stringBuilder.append(messages.get(i).toString());
+//                    stringBuilder.append((i == (messages.size()) - 1) ? "" : "\r");
+//                }
+//
+//                for (Iterator<ProcessingMessage> iterator = messages.iterator(); iterator.hasNext();) {
+//                    ProcessingMessage processingMessage = iterator.next();
+//                    errors.add(processingMessage.asJson());
+//                }
+//
+//                throw new RuntimeException(stringBuilder.toString());
+//            }
+        } catch (ProcessingException e) {
+            throw new RuntimeJsonMappingException("ERROR -->" + e.toString());
+        }
+    }
+}
+
+enum Currency {
+    INR, HKD, EUR, USD
+}
+
+@JsonPropertyOrder(value = {"id", "amount", "currency"})
+@JsonRootName("transaction")
+class Transaction implements Serializable {
+
+    @JsonProperty
+    private String id;
+    @JsonProperty
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+    private BigDecimal amount;
+    @JsonProperty
+    private Currency currency;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public double getAmount() {
+        return amount.doubleValue();
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(Currency currency) {
+        this.currency = currency;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer sb = new StringBuffer("Transaction{");
+        sb.append("id='").append(id).append('\'');
+        sb.append(", amount=").append(amount);
+        sb.append(", currency=").append(currency);
+        sb.append('}');
+        return sb.toString();
+    }
+}
+
+@JsonPropertyOrder(value = {"ip", "mac", "subnet"})
+@JsonRootName("dhcp")
+class DHCP implements Serializable {
+    @JsonProperty
+    private String ip;
+    @JsonProperty
+    private String mac;
+    @JsonProperty
+    private String subnet;
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    public String getMac() {
+        return mac;
+    }
+
+    public void setMac(String mac) {
+        this.mac = mac;
+    }
+
+    public String getSubnet() {
+        return subnet;
+    }
+
+    public void setSubnet(String subnet) {
+        this.subnet = subnet;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer sb = new StringBuffer("DHCP{");
+        sb.append("ip='").append(ip).append('\'');
+        sb.append(", mac=").append(mac);
+        sb.append(", subnet=").append(subnet);
+        sb.append('}');
+        return sb.toString();
+    }
+}
+
+class JSONConverter {
+
+    protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER_THREAD_LOCAL = ThreadLocal.withInitial(() -> new ObjectMapper());
+
+    /**
+     * Convert String as JSON to JsonNode.
+     *
+     * @param payload
+     * @return
+     */
+    public static JsonNode getJsonFromString(String payload) {
+        try {
+            return OBJECT_MAPPER_THREAD_LOCAL.get().readTree(payload);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Convert JsonNode Object to Map
+     *
+     * @param payload
+     * @return
+     */
+    public static Map getMapFromJson(JsonNode payload) {
+        try {
+            return OBJECT_MAPPER_THREAD_LOCAL.get().readerFor(Map.class).readValue(payload);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Convert Map Object to JsonNode.
+     *
+     * @param payload
+     * @return
+     */
+    public static JsonNode getJsonFromMap(Map payload) {
+        try {
+            return getJsonFromString(OBJECT_MAPPER_THREAD_LOCAL.get().writeValueAsString(payload));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Create a Empty Object Node. i.e {}
+     *
+     * @return
+     */
+    public static ObjectNode createObjectNode() {
+        return OBJECT_MAPPER_THREAD_LOCAL.get().createObjectNode();
+    }
+
+    /**
+     * Create a Empty Array Json Object i.e [{},{}]
+     *
+     * @return
+     */
+    public static ArrayNode createArrayNode() {
+        return OBJECT_MAPPER_THREAD_LOCAL.get().createArrayNode();
+    }
+
+    /**
+     * Remove particular key elements from JsonNode.
+     *
+     * @param payload
+     * @param key
+     * @return
+     */
+    public static JsonNode remove(JsonNode payload, String key) {
+        ((ObjectNode) payload).remove(key);
+        return payload;
+    }
+}
+
+class CSVReader {
+
+    protected final CsvMapper csvMapper = new CsvMapper();
+
+    public List<JsonNode> load(Class<?> zlass, URL resourceCSVFile) throws IOException {
+
+        CsvSchema csvSchema = csvMapper.typedSchemaFor(zlass).withHeader();
+        MappingIterator it = new CsvMapper().readerFor(zlass)
+                .with(csvSchema.withColumnSeparator(CsvSchema.DEFAULT_COLUMN_SEPARATOR))
+                .readValues(resourceCSVFile);
+        List<JsonNode> listOfJson = new ArrayList<>();
+        while (it.hasNext()) {
+            listOfJson.add(JSONConverter.getJsonFromString(new Gson().toJson(it.next())));
+        }
+        return listOfJson;
+    }
+}
 
 class SchemaValidationException extends Exception {
     public SchemaValidationException(String message) {
@@ -927,6 +1177,135 @@ public class FooTest
     ObjectNode validatePassword(ObjectNode req) throws SchemaValidationException {
         JsonNode password = req.get("password");
         return validateInputParameter(password, new Schema(true, "string", 4, 8));
+    }
+
+    public void testJsonValidate() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(Transaction.class, "/schema/trade-schema.json");
+
+            CSVReader csvReader = new CSVReader();
+            List<JsonNode> lists = csvReader.load(Transaction.class, FooTest.class.getClassLoader().getResource("trade.csv"));
+            for (int i = 0; i < lists.size(); i++) {
+                //validate each JsonNode of Type Transaction to Schema file.
+                jsonSchemaManager.check(Transaction.class, lists.get(i));
+                lists.get(i);
+            }
+        } catch (IOException e) {
+            fail();
+        }
+    }
+
+    ArrayNode processReportToResErrors(ProcessingReport report) {
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode jsonNodes = mapper.createArrayNode();
+
+        for (Iterator<ProcessingMessage> iterator = report.iterator(); iterator.hasNext();) {
+            ProcessingMessage processingMessage = iterator.next();
+            jsonNodes.add(processingMessage.asJson());
+        }
+
+        return jsonNodes;
+    }
+
+    void checkErrors(ArrayNode errors) {
+        for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+            JsonNode error = it.next();
+            assertTrue(error.isObject());
+            assertTrue(((ObjectNode)error).get("level") != null);
+            assertTrue(((ObjectNode)error).get("schema") != null);
+            assertTrue(((ObjectNode)error).get("instance") != null);
+            assertTrue(((ObjectNode)error).get("keyword") != null);
+            assertTrue(((ObjectNode)error).get("message") != null);
+            assertTrue(((ObjectNode)error).get("found") != null);
+            assertTrue(((ObjectNode)error).get("expected") != null);
+            //assertTrue(((ObjectNode)error).get("keyword").textValue().equals("type"));
+        }
+    }
+
+    public void testJsonDHCPValidate_Sucess() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            dhcpReq.put("ip", "1.2.3.4");
+            dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess());
+
+            ObjectMapper mapper = new ObjectMapper();
+            DHCP dhcp = mapper.readValue(dhcpReq.toString(), DHCP.class);
+            System.out.printf("");
+
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
+    }
+
+    public void testJsonDHCPValidate_InvalidType() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            //dhcpReq.put("ip", "1.2.3.4");
+            dhcpReq.put("ip", 123);
+            //dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("mac", 123);
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess() != true);
+
+            ArrayNode errors = processReportToResErrors(report);
+            checkErrors(errors);
+
+            assertTrue(errors.size() == 2);
+            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+                JsonNode error = it.next();
+//                assertTrue(error.isObject());
+//                assertTrue(((ObjectNode)error).get("level") != null);
+//                assertTrue(((ObjectNode)error).get("schema") != null);
+//                assertTrue(((ObjectNode)error).get("instance") != null);
+//                assertTrue(((ObjectNode)error).get("keyword") != null);
+//                assertTrue(((ObjectNode)error).get("message") != null);
+//                assertTrue(((ObjectNode)error).get("found") != null);
+//                assertTrue(((ObjectNode)error).get("expected") != null);
+
+                assertTrue(((ObjectNode)error).get("keyword").textValue().equals("type"));
+            }
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
+    }
+
+    public void testJsonDHCPValidate_MissRequired() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            //dhcpReq.put("ip", "1.2.3.4");
+            //dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess() != true);
+
+            ArrayNode errors = processReportToResErrors(report);
+            assertTrue(errors.size() == 1);
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
     }
 
     public void testValidateInputParameterRequired() {

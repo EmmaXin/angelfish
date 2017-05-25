@@ -1,0 +1,17 @@
+{
+  "title": "Daily Trade Transaction",
+  "description": "Daily Trade Transaction",
+  "type": "object",
+  "required": ["ip", "mac", "subnet"],
+  "properties": {
+    "ip":{
+      "type": "string"
+    },
+    "mac":{
+      "type":"string"
+    },
+    "subnet":{
+      "type":"string"
+    }
+  }
+}

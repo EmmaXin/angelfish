@@ -225,37 +225,25 @@ class User {
         return model;
     }
 
-    public static Date date = Calendar.getInstance().getTime();
-
-    private String username;
-    private String password;
-    private Date created;
-    private Date lastPasswordModified;
     private ObjectNode object;
 
-    private User() {
-        created = new Date(date.getTime());
-        object = JsonNodeFactory.instance.objectNode();
-        set(CREATED, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(date));
-    }
-
-    public User(String username, String password) {
-        this();
-
-        setUsername(username);
-        setPassword(password);
-    }
-
-    // deserialize
     public User(ObjectNode objectNode) {
         object = objectNode;
+
+        if (object.get(CREATED) == null || !object.get(CREATED).isTextual()) {
+            set(CREATED, new SimpleDateFormat(DATE_FORMAT).format(currentTime()));
+        }
     }
 
     public User(ObjectNode objectNode, String username, String password) {
-        object = objectNode;
-        set(CREATED, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(date));
+        this(objectNode);
+
         setUsername(username);
         setPassword(password);
+    }
+
+    public User(String username, String password) {
+        this(JsonNodeFactory.instance.objectNode(), username, password);
     }
 
     public static ObjectNode sanitize(ObjectNode objectNode) {
@@ -272,37 +260,18 @@ class User {
             }
         }
 
-        User user = new User();
-
-        user.username = objectNode.get(USERNAME).textValue();
-        user.password = objectNode.get(PASSWORD).textValue();
-
-        user.set(USERNAME, objectNode.get(USERNAME).textValue());
-        user.set(PASSWORD, objectNode.get(PASSWORD).textValue());
+        ObjectNode innerObject = JsonNodeFactory.instance.objectNode();
+        User user = new User(innerObject, objectNode.get(USERNAME).textValue(), objectNode.get(PASSWORD).textValue());
 
         if (objectNode.get(CREATED) != null) {
-            user.created = parseDateString(objectNode.get(CREATED).textValue());
             user.set(CREATED, objectNode.get(CREATED).textValue());
         }
 
-        if (user.created == null) {
-            user.created = new Date(date.getTime());
-        }
-
         if (objectNode.get(LAST_PASSWORD_MODIFIED) != null) {
-            user.lastPasswordModified = parseDateString(objectNode.get(LAST_PASSWORD_MODIFIED).textValue());
             user.set(LAST_PASSWORD_MODIFIED, objectNode.get(LAST_PASSWORD_MODIFIED).textValue());
         }
 
-        if (user.lastPasswordModified == null) {
-            user.lastPasswordModified = new Date(date.getTime());
-        }
-
-        return user.getRawData();
-    }
-
-    public ObjectNode getRawData() {
-        return object;
+        return innerObject;
     }
 
     private void set(String fieldName, Object value) {
@@ -324,23 +293,21 @@ class User {
         }
     }
 
+    private static Date currentTime() {
+        return new java.util.Date();
+    }
+
     public void setUsername(String username) {
-        this.username = username;
         set(USERNAME, username);
     }
 
     public String getUsername() {
         return object.get(USERNAME).textValue();
-//
-//        return this.username;
     }
 
     public void setPassword(String password) {
-        this.password = password;
-        this.lastPasswordModified = new Date(date.getTime());
-
         set(PASSWORD, password);
-        set(LAST_PASSWORD_MODIFIED, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(date));
+        set(LAST_PASSWORD_MODIFIED, new SimpleDateFormat(DATE_FORMAT).format(currentTime()));
     }
 
     public String getPassword() {
@@ -355,20 +322,12 @@ class User {
 
     public Date getCreated() {
         String str = object.get(CREATED).textValue();
-        try {
-            return (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse(str);
-        } catch (ParseException e) {
-            return null;
-        }
+        return parseDateString(str);
     }
 
     public Date getLastPasswordModified() {
         String str = object.get(LAST_PASSWORD_MODIFIED).textValue();
-        try {
-            return (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")).parse(str);
-        } catch (ParseException e) {
-            return null;
-        }
+        return parseDateString(str);
     }
 
     public boolean equals(User other) {
@@ -426,18 +385,18 @@ class UserConfigDeserializer extends StdDeserializer<UserConfig> {
             ArrayNode usersNode = (ArrayNode) node.get("users");
 
             for (Iterator<JsonNode> iterator = usersNode.iterator(); iterator.hasNext();) {
-                JsonNode userNode = iterator.next();
+                JsonNode unsafeNode = iterator.next();
 
-                if (!userNode.isObject()) {
+                if (!unsafeNode.isObject()) {
                     continue;
                 }
 
-                ObjectNode user = User.sanitize((ObjectNode) userNode);
-                if (user == null) {
+                ObjectNode userNode = User.sanitize((ObjectNode) unsafeNode);
+                if (userNode == null) {
                     continue;
                 }
 
-                config.addUser(user);
+                config.addRawUser(userNode);
             }
         }
 
@@ -448,24 +407,16 @@ class UserConfigDeserializer extends StdDeserializer<UserConfig> {
 @JsonSerialize(using = UserConfigSerializer.class)
 @JsonDeserialize(using = UserConfigDeserializer.class)
 class UserConfig {
-    private ArrayList<User> users;
-    private ArrayNode arrayNode;
+    private ArrayNode users;
 
     protected UserConfig() {
-        users = new ArrayList<>();
-        arrayNode = JsonNodeFactory.instance.arrayNode();
-    }
-
-    @Deprecated
-    public void addUser(User user) {
-        users.add(user);
-        arrayNode.add(user.getRawData());
+        users = JsonNodeFactory.instance.arrayNode();
     }
 
     public void addUser(String username, String password) throws IllegalArgumentException {
         // TODO: check username and password
 
-        for (Iterator<JsonNode> iterator = arrayNode.iterator(); iterator.hasNext();) {
+        for (Iterator<JsonNode> iterator = users.iterator(); iterator.hasNext();) {
             JsonNode user = iterator.next();
 
             if (user.get("username").textValue().equalsIgnoreCase(username)) {
@@ -473,20 +424,9 @@ class UserConfig {
             }
         }
 
-        for (Iterator<User> iterator = users.iterator(); iterator.hasNext();) {
-            User user = iterator.next();
-
-            if (user.getUsername().equalsIgnoreCase(username)) {
-                throw new AssertionError("something wrong");
-//                throw new IllegalArgumentException(String.format("user (%s) is existed", username));
-            }
-        }
-
-        users.add(new User(username, password));
-
-        ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
-        new User(objectNode, username, password);
-        arrayNode.add(objectNode);
+        ObjectNode userNode = JsonNodeFactory.instance.objectNode();
+        new User(userNode, username, password);
+        addRawUser(userNode);
     }
 
     @Deprecated
@@ -513,14 +453,16 @@ class UserConfig {
         addUser(username.textValue(), password.textValue());
     }
 
+    public void addRawUser(ObjectNode userNode) {
+        users.add(userNode);
+    }
+
     public void delUser(String username) {
-        users.removeIf(s -> s.getUsername().equals(username));
+        for (int i = 0; i < users.size(); ++i) {
+            ObjectNode userNode = (ObjectNode) users.get(i);
 
-        for (int i = 0; i < arrayNode.size(); ++i) {
-            ObjectNode objectNode = (ObjectNode) arrayNode.get(i);
-
-            if (objectNode.get("username").textValue().equals(username)) {
-                arrayNode.remove(i);
+            if (userNode.get("username").textValue().equals(username)) {
+                users.remove(i);
                 return;
             }
         }
@@ -534,18 +476,11 @@ class UserConfig {
     }
 
     public User getUser(String username) {
-        for (int i = 0; i < arrayNode.size(); ++i) {
-            ObjectNode objectNode = (ObjectNode) arrayNode.get(i);
+        for (int i = 0; i < users.size(); ++i) {
+            ObjectNode userNode = (ObjectNode) users.get(i);
 
-            if (objectNode.get("username").textValue().equals(username)) {
-                return new User(objectNode);
-            }
-        }
-
-        for (User user : users) {
-            if (user.getUsername().equals(username)) {
-                throw new AssertionError("something wrong");
-//                return user;
+            if (userNode.get("username").textValue().equals(username)) {
+                return new User(userNode);
             }
         }
 
@@ -559,26 +494,18 @@ class UserConfig {
     public ArrayList<User> getUsers() {
         ArrayList<User> arrayList = new ArrayList<>();
 
-        for (int i = 0; i < arrayNode.size(); ++i) {
-            ObjectNode objectNode = (ObjectNode) arrayNode.get(i);
+        for (int i = 0; i < users.size(); ++i) {
+            ObjectNode objectNode = (ObjectNode) users.get(i);
 
-                arrayList.add(new User(objectNode));
+            arrayList.add(new User(objectNode));
         }
 
         return arrayList;
     }
 
-//    public boolean equals(UserConfig other) {
-//        //ArrayList commonList = CollectionUtils.retainAll(list1,list2);
-//        Set<User> set1 = new HashSet<User>(users);
-//        for (User user : other.users) {
-//            if (!set1.contains(user)) {
-//                return false;
-//            }
-//        }
-//
-//        return true;
-//    }
+    public boolean equals(UserConfig other) {
+        return users.equals(other.users);
+    }
 }
 
 class Foo
@@ -777,43 +704,11 @@ public class FooTest
             assertTrue(object.equals(userObject));
 
 //            User cloneUser = User.deserialize(object);
-
 //            assertTrue(cloneUser.equals(user));
         } catch (IOException e) {
             fail();
         }
     }
-
-    public void testUserSerializeByObjectMapper() {
-        User user = new User("myuser", "mypassword");
-
-        ObjectMapper mapper = new ObjectMapper();
-
-        try {
-            String jsonString = mapper.writeValueAsString(user);
-            User cloneUser = mapper.readValue(jsonString, User.class);
-
-            assertTrue(cloneUser.equals(user));
-        } catch (IOException e) {
-            fail();
-        }
-    }
-
-//    public void testUiAddUserViaUser() {
-//        ObjectNode payload = JsonNodeFactory.instance.objectNode();
-//        UserConfig cfg = new UserConfig();
-//
-//        payload.put("username", "myusername");
-//        payload.put("password", "mypassword");
-//
-//        ObjectNode req = payload;
-//
-//        User user = new User(req.get("username").textValue(), req.get("password").textValue());
-//        cfg.addUser(user);
-//
-//        assertTrue(cfg.getUser("myusername").getUsername().equals("myusername"));
-//        assertTrue(cfg.getUser("myusername").getPassword().equals("mypassword"));
-//    }
 
     public void testUiAddUser() {
         ObjectNode payload = JsonNodeFactory.instance.objectNode();
@@ -955,9 +850,10 @@ public class FooTest
 
             UserConfig cloneCfg = mapper.readValue(string, UserConfig.class);
 
-            //assertTrue(cloneCfg.equals(cfg) == true);
             assertTrue(cfg.getUser("myuser").equals(cloneCfg.getUser("myuser")));
             assertTrue(cfg.getUser("auser").equals(cloneCfg.getUser("auser")));
+
+            assertTrue(cloneCfg.equals(cfg) == true);
 
         } catch (IllegalArgumentException e) {
             fail();

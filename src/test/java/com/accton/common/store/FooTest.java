@@ -1208,6 +1208,23 @@ public class FooTest
         return jsonNodes;
     }
 
+    // TODO: code as enum
+    ObjectNode generateErrorResponse(int code, String message, ProcessingReport report) {
+        ObjectNode error = JsonNodeFactory.instance.objectNode();
+
+        error.put("code", code);
+        error.put("message", message);
+        if (report != null) {
+            error.putArray("errors").addAll(processReportToResErrors(report));
+        }
+
+        return error;
+    }
+
+    ObjectNode generateErrorResponse(int code, String message) {
+        return generateErrorResponse(code, message, null);
+    }
+
     void checkErrors(ArrayNode errors) {
         for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
             JsonNode error = it.next();
@@ -1215,10 +1232,11 @@ public class FooTest
             assertTrue(((ObjectNode)error).get("level") != null);
             assertTrue(((ObjectNode)error).get("schema") != null);
             assertTrue(((ObjectNode)error).get("instance") != null);
+            assertTrue(((ObjectNode)error).get("domain") != null);
             assertTrue(((ObjectNode)error).get("keyword") != null);
             assertTrue(((ObjectNode)error).get("message") != null);
-            assertTrue(((ObjectNode)error).get("found") != null);
-            assertTrue(((ObjectNode)error).get("expected") != null);
+            //assertTrue(((ObjectNode)error).get("found") != null);
+            //assertTrue(((ObjectNode)error).get("expected") != null);
             //assertTrue(((ObjectNode)error).get("keyword").textValue().equals("type"));
         }
     }
@@ -1238,8 +1256,7 @@ public class FooTest
 
             ObjectMapper mapper = new ObjectMapper();
             DHCP dhcp = mapper.readValue(dhcpReq.toString(), DHCP.class);
-            System.out.printf("");
-
+            assertTrue(dhcp.getIp().equals("1.2.3.4"));
         } catch (RuntimeException e) {
             fail();
         }  catch (IOException e) {
@@ -1247,7 +1264,7 @@ public class FooTest
         }
     }
 
-    public void testJsonDHCPValidate_InvalidType() {
+    public void testJsonDHCPValidateWithInvalidType() {
         try {
             JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
             jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
@@ -1262,22 +1279,22 @@ public class FooTest
             ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
             assertTrue(report.isSuccess() != true);
 
-            ArrayNode errors = processReportToResErrors(report);
+            //ArrayNode errors = processReportToResErrors(report);
+
+            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            //assertTrue(response.get("errors").equals(errors));
+            ArrayNode errors = (ArrayNode) response.get("errors");
             checkErrors(errors);
 
-            assertTrue(errors.size() == 2);
+            assertTrue(errors.size() == 3);
             for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
                 JsonNode error = it.next();
-//                assertTrue(error.isObject());
-//                assertTrue(((ObjectNode)error).get("level") != null);
-//                assertTrue(((ObjectNode)error).get("schema") != null);
-//                assertTrue(((ObjectNode)error).get("instance") != null);
-//                assertTrue(((ObjectNode)error).get("keyword") != null);
-//                assertTrue(((ObjectNode)error).get("message") != null);
-//                assertTrue(((ObjectNode)error).get("found") != null);
-//                assertTrue(((ObjectNode)error).get("expected") != null);
-
+                if (!error.get("keyword").textValue().equals("type")) {
+                    continue;
+                }
                 assertTrue(((ObjectNode)error).get("keyword").textValue().equals("type"));
+                assertTrue(((ObjectNode)error).get("found").textValue().equals("integer"));
+                assertTrue(((ObjectNode)error).get("expected").toString().equals("[\"string\"]"));
             }
         } catch (RuntimeException e) {
             fail();
@@ -1286,7 +1303,78 @@ public class FooTest
         }
     }
 
-    public void testJsonDHCPValidate_MissRequired() {
+    public void testJsonDHCPValidateWithInvalidFormatOneOf() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            //dhcpReq.put("ip", "1.2.3.4");
+            dhcpReq.put("ip", "abcd");
+            dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess() != true);
+
+            //ArrayNode errors = processReportToResErrors(report);
+
+            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            //assertTrue(response.get("errors").equals(errors));
+            ArrayNode errors = (ArrayNode) response.get("errors");
+            checkErrors(errors);
+
+            assertTrue(errors.size() == 1);
+            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+                JsonNode error = it.next();
+                assertTrue(((ObjectNode)error).get("keyword").textValue().equals("oneOf"));
+                assertTrue(((ObjectNode)error).get("matched").numberValue().intValue() == 0);
+                assertTrue(((ObjectNode)error).get("nrSchemas").numberValue().intValue() == 2);
+            }
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
+    }
+
+    public void testJsonDHCPValidateWithInvalidFormat() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            dhcpReq.put("ip", "1.2.3.4");
+            //dhcpReq.put("ip", "abcd");
+            //dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("mac", "cafecafecafe");
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess() != true);
+
+            //ArrayNode errors = processReportToResErrors(report);
+
+            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            //assertTrue(response.get("errors").equals(errors));
+            ArrayNode errors = (ArrayNode) response.get("errors");
+            checkErrors(errors);
+
+            assertTrue(errors.size() == 1);
+            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+                JsonNode error = it.next();
+                assertTrue(((ObjectNode)error).get("keyword").textValue().equals("format"));
+                assertTrue(((ObjectNode)error).get("attribute").textValue().equals("mac"));
+                assertTrue(((ObjectNode)error).get("value").textValue().equals("cafecafecafe"));
+            }
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
+    }
+
+    public void testJsonDHCPValidateWithMissingRequiredField() {
         try {
             JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
             jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
@@ -1299,8 +1387,20 @@ public class FooTest
             ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
             assertTrue(report.isSuccess() != true);
 
-            ArrayNode errors = processReportToResErrors(report);
+            //ArrayNode errors = processReportToResErrors(report);
+
+            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            //assertTrue(response.get("errors").equals(errors));
+            ArrayNode errors = (ArrayNode) response.get("errors");
+            checkErrors(errors);
+
             assertTrue(errors.size() == 1);
+            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+                JsonNode error = it.next();
+                assertTrue(((ObjectNode)error).get("required").toString().equals("[\"ip\",\"mac\",\"subnet\"]"));
+                assertTrue(((ObjectNode)error).get("missing").toString().equals("[\"ip\",\"mac\"]"));
+            }
+
         } catch (RuntimeException e) {
             fail();
         }  catch (IOException e) {

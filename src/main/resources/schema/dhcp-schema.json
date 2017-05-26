@@ -5,10 +5,15 @@
   "required": ["ip", "mac", "subnet"],
   "properties": {
     "ip":{
-      "type": "string"
+      "type": "string",
+      "oneOf": [
+        {"format": "ipv4"},
+        {"format": "ipv6"}
+      ]
     },
     "mac":{
-      "type":"string"
+      "type":"string",
+      "format": "mac"
     },
     "subnet":{
       "type":"string"

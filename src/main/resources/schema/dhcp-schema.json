@@ -12,11 +12,32 @@
       ]
     },
     "mac":{
-      "type":"string",
+      "type": "string",
       "format": "mac"
     },
     "subnet":{
-      "type":"string"
+      "type": "string",
+      "oneOf": [
+        {"format": "ipv4"},
+        {"format": "ipv6"}
+      ]
+    },
+    "mapping": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hostId", "ipAssign"],
+        "properties": {
+          "hostId": {
+            "type": "string",
+            "format": "mac"
+          },
+          "ipAssign": {
+            "type": "string",
+            "format": "ipv4"
+          }
+        }
+      }
     }
   }
 }

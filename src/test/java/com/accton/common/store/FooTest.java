@@ -130,15 +130,54 @@ class Transaction implements Serializable {
     }
 }
 
-@JsonPropertyOrder(value = {"ip", "mac", "subnet"})
-@JsonRootName("dhcp")
+//@JsonPropertyOrder(value = {"hostId"})
+//@JsonRootName("DHCP")
+class DHCPMapping implements Serializable {
+//    @JsonProperty
+    private String hostId;
+
+//    @JsonProperty
+    private String ipAssign;
+
+    public String getHostId() {
+        return hostId;
+    }
+
+    public void setHostId(String hostId) {
+        this.hostId = hostId;
+    }
+
+    public String getIpAssign() {
+        return ipAssign;
+    }
+
+    public void setIpAssign(String ipAssign) {
+        this.ipAssign = ipAssign;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer sb = new StringBuffer("DHCPMapping{");
+        sb.append("hostId='").append(hostId).append('\'');
+//        sb.append(", mac=").append(mac);
+//        sb.append(", subnet=").append(subnet);
+//        sb.append(", mapping=").append(mapping.toString());
+        sb.append('}');
+        return sb.toString();
+    }
+}
+
+//@JsonPropertyOrder(value = {"ip", "mac", "subnet", "mapping"})
+//@JsonRootName("dhcp")
 class DHCP implements Serializable {
-    @JsonProperty
+//    @JsonProperty
     private String ip;
-    @JsonProperty
+//    @JsonProperty
     private String mac;
-    @JsonProperty
+//    @JsonProperty
     private String subnet;
+//    @JsonProperty
+    List<DHCPMapping> mapping = new ArrayList<>();
 
     public String getIp() {
         return ip;
@@ -164,12 +203,25 @@ class DHCP implements Serializable {
         this.subnet = subnet;
     }
 
+    public List<DHCPMapping> getMapping() {
+        return mapping;
+    }
+
+    public void setMapping(List<DHCPMapping> mapping) {
+        this.mapping = mapping;
+    }
+
     @Override
     public String toString() {
         final StringBuffer sb = new StringBuffer("DHCP{");
         sb.append("ip='").append(ip).append('\'');
         sb.append(", mac=").append(mac);
         sb.append(", subnet=").append(subnet);
+        sb.append(", mapping=[").append('\'');
+        for (DHCPMapping m : mapping) {
+            sb.append(m.toString());
+        }
+        sb.append("]");
         sb.append('}');
         return sb.toString();
     }
@@ -769,6 +821,77 @@ class Foo
     Foo() {}
 }
 
+class Error {
+    public enum StatusCode {
+        BAD_REQUEST(400), UNAUTHORIZED(401);
+
+        private final int value;
+        private StatusCode(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
+    private StatusCode code;
+    private String message;
+    private ProcessingReport report;
+
+    Error(StatusCode code, String message, ProcessingReport report) {
+        this.code = code;
+        this.message = message;
+        this.report = report;
+    }
+
+    Error(StatusCode code, String message) {
+        this.code = code;
+        this.message = message;
+        this.report = null;
+    }
+
+    public StatusCode getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public ProcessingReport getReport() {
+        return report;
+    }
+
+    public static ArrayNode processReportToJsonArray(ProcessingReport report) {
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode jsonNodes = mapper.createArrayNode();
+
+        for (Iterator<ProcessingMessage> iterator = report.iterator(); iterator.hasNext();) {
+            ProcessingMessage processingMessage = iterator.next();
+            jsonNodes.add(processingMessage.asJson());
+        }
+
+        return jsonNodes;
+    }
+
+    public JsonNode asJson() {
+        ObjectNode json = JsonNodeFactory.instance.objectNode();
+        json.put("code", code.getValue());
+        json.put("message", message);
+        if (report != null) {
+            json.putArray("errors").addAll(processReportToJsonArray(report));
+        }
+        return json;
+    }
+}
+
+class BadRequestError extends Error {
+    public BadRequestError(ProcessingReport report) {
+        super(StatusCode.BAD_REQUEST, "Bad Request", report);
+    }
+}
+
 /**
  * Unit test for simple App.
  */
@@ -1196,34 +1319,34 @@ public class FooTest
         }
     }
 
-    ArrayNode processReportToResErrors(ProcessingReport report) {
-        ObjectMapper mapper = new ObjectMapper();
-        ArrayNode jsonNodes = mapper.createArrayNode();
-
-        for (Iterator<ProcessingMessage> iterator = report.iterator(); iterator.hasNext();) {
-            ProcessingMessage processingMessage = iterator.next();
-            jsonNodes.add(processingMessage.asJson());
-        }
-
-        return jsonNodes;
-    }
-
-    // TODO: code as enum
-    ObjectNode generateErrorResponse(int code, String message, ProcessingReport report) {
-        ObjectNode error = JsonNodeFactory.instance.objectNode();
-
-        error.put("code", code);
-        error.put("message", message);
-        if (report != null) {
-            error.putArray("errors").addAll(processReportToResErrors(report));
-        }
-
-        return error;
-    }
-
-    ObjectNode generateErrorResponse(int code, String message) {
-        return generateErrorResponse(code, message, null);
-    }
+//    ArrayNode processReportToResErrors(ProcessingReport report) {
+//        ObjectMapper mapper = new ObjectMapper();
+//        ArrayNode jsonNodes = mapper.createArrayNode();
+//
+//        for (Iterator<ProcessingMessage> iterator = report.iterator(); iterator.hasNext();) {
+//            ProcessingMessage processingMessage = iterator.next();
+//            jsonNodes.add(processingMessage.asJson());
+//        }
+//
+//        return jsonNodes;
+//    }
+//
+//    // TODO: code as enum
+//    ObjectNode generateErrorResponse(int code, String message, ProcessingReport report) {
+//        ObjectNode error = JsonNodeFactory.instance.objectNode();
+//
+//        error.put("code", code);
+//        error.put("message", message);
+//        if (report != null) {
+//            error.putArray("errors").addAll(processReportToResErrors(report));
+//        }
+//
+//        return error;
+//    }
+//
+//    ObjectNode generateErrorResponse(int code, String message) {
+//        return generateErrorResponse(code, message, null);
+//    }
 
     void checkErrors(ArrayNode errors) {
         for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
@@ -1251,12 +1374,21 @@ public class FooTest
             dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
             dhcpReq.put("subnet", "255.255.252.0");
 
+            ArrayNode mapping = JsonNodeFactory.instance.arrayNode();
+            ObjectNode mappingEntry = JsonNodeFactory.instance.objectNode();
+            mappingEntry.put("hostId", "70:72:CF:C7:CD:C7");
+            mappingEntry.put("ipAssign", "192.168.2.66");
+            mapping.add(mappingEntry);
+            dhcpReq.putArray("mapping").addAll(mapping);
+
             ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
             assertTrue(report.isSuccess());
 
             ObjectMapper mapper = new ObjectMapper();
             DHCP dhcp = mapper.readValue(dhcpReq.toString(), DHCP.class);
             assertTrue(dhcp.getIp().equals("1.2.3.4"));
+            assertTrue(dhcp.getMapping().get(0).getHostId().equals("70:72:CF:C7:CD:C7"));
+            assertTrue(dhcp.getMapping().get(0).getIpAssign().equals("192.168.2.66"));
         } catch (RuntimeException e) {
             fail();
         }  catch (IOException e) {
@@ -1281,7 +1413,8 @@ public class FooTest
 
             //ArrayNode errors = processReportToResErrors(report);
 
-            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            //ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            ObjectNode response = (ObjectNode) (new BadRequestError(report).asJson());
             //assertTrue(response.get("errors").equals(errors));
             ArrayNode errors = (ArrayNode) response.get("errors");
             checkErrors(errors);
@@ -1319,7 +1452,8 @@ public class FooTest
 
             //ArrayNode errors = processReportToResErrors(report);
 
-            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+//            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            ObjectNode response = (ObjectNode) (new BadRequestError(report).asJson());
             //assertTrue(response.get("errors").equals(errors));
             ArrayNode errors = (ArrayNode) response.get("errors");
             checkErrors(errors);
@@ -1355,7 +1489,8 @@ public class FooTest
 
             //ArrayNode errors = processReportToResErrors(report);
 
-            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+//            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            ObjectNode response = (ObjectNode) (new BadRequestError(report).asJson());
             //assertTrue(response.get("errors").equals(errors));
             ArrayNode errors = (ArrayNode) response.get("errors");
             checkErrors(errors);
@@ -1389,7 +1524,8 @@ public class FooTest
 
             //ArrayNode errors = processReportToResErrors(report);
 
-            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+//            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            ObjectNode response = (ObjectNode) (new BadRequestError(report).asJson());
             //assertTrue(response.get("errors").equals(errors));
             ArrayNode errors = (ArrayNode) response.get("errors");
             checkErrors(errors);
@@ -1407,6 +1543,83 @@ public class FooTest
             fail();
         }
     }
+
+    public void testJsonDHCPValidateWithArrayField() {
+        try {
+            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+
+            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+            dhcpReq.put("ip", "1.2.3.4");
+            dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+            dhcpReq.put("subnet", "255.255.252.0");
+
+            ArrayNode mapping = JsonNodeFactory.instance.arrayNode();
+            ObjectNode mappingEntry = JsonNodeFactory.instance.objectNode();
+            mappingEntry.put("hostId", "XXx72:CF:C7:CD:C7");
+            mappingEntry.put("ipAssign", "192.168.2.66");
+            mapping.add(mappingEntry);
+            dhcpReq.putArray("mapping").addAll(mapping);
+
+            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+            assertTrue(report.isSuccess() != true);
+
+            //ArrayNode errors = processReportToResErrors(report);
+
+//            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+            ObjectNode response = (ObjectNode) (new BadRequestError(report).asJson());
+            //assertTrue(response.get("errors").equals(errors));
+            ArrayNode errors = (ArrayNode) response.get("errors");
+            checkErrors(errors);
+
+            assertTrue(errors.size() == 1);
+            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+                JsonNode error = it.next();
+                assertTrue(((ObjectNode)error).get("keyword").textValue().equals("format"));
+                assertTrue(((ObjectNode)error).get("attribute").textValue().equals("mac"));
+                assertTrue(((ObjectNode)error).get("value").textValue().equals("XXx72:CF:C7:CD:C7"));
+            }
+
+        } catch (RuntimeException e) {
+            fail();
+        }  catch (IOException e) {
+            fail();
+        }
+    }
+
+//    public void testJsonDHCPValidateWithArrayField() {
+//        try {
+//            JsonSchemaManager jsonSchemaManager = new JsonSchemaManager();
+//            jsonSchemaManager.load(DHCP.class, "/schema/dhcp-schema.json");
+//
+//            ObjectNode dhcpReq = JsonNodeFactory.instance.objectNode();
+//            dhcpReq.put("ip", "1.2.3.4");
+//            dhcpReq.put("mac", "ca:fe:ca:fe:ca:fe");
+//            dhcpReq.put("subnet", "255.255.252.0");
+//
+//            ProcessingReport report = jsonSchemaManager.check(DHCP.class, dhcpReq);
+//            assertTrue(report.isSuccess() != true);
+//
+//            //ArrayNode errors = processReportToResErrors(report);
+//
+//            ObjectNode response = generateErrorResponse(400, "Bad request", report);
+//            //assertTrue(response.get("errors").equals(errors));
+//            ArrayNode errors = (ArrayNode) response.get("errors");
+//            checkErrors(errors);
+//
+//            assertTrue(errors.size() == 1);
+//            for (Iterator<JsonNode> it = errors.iterator(); it.hasNext();) {
+//                JsonNode error = it.next();
+//                assertTrue(((ObjectNode)error).get("required").toString().equals("[\"ip\",\"mac\",\"subnet\"]"));
+//                assertTrue(((ObjectNode)error).get("missing").toString().equals("[\"ip\",\"mac\"]"));
+//            }
+//
+//        } catch (RuntimeException e) {
+//            fail();
+//        }  catch (IOException e) {
+//            fail();
+//        }
+//    }
 
     public void testValidateInputParameterRequired() {
         ObjectNode payload = JsonNodeFactory.instance.objectNode();

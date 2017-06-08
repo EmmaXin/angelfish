@@ -396,6 +396,15 @@ public class PersistentStoreManager {
         }
     }
 
+    public byte[] getVersionContent(String versionId) {
+        try {
+            Map.Entry<byte[], DocumentMeta> result = this.persistentStoreDriver.load(this.packageName + ".backups." + versionId);
+            return result.getKey();
+        } catch (IllegalArgumentException | IOException e) {
+            return null;
+        }
+    }
+
     protected void setCalendarInstance(Calendar calendarInstance) {
         this.calendarInstance = calendarInstance;
     }

@@ -458,6 +458,12 @@ public class PersistentStoreDriverDriverManagerTest
 
         byte[] currentOuput = mgr.getCurrentVersionContent();
         assertTrue(Arrays.equals(currentOuput, files.get(0)));
+
+        byte[] output = mgr.getVersionContent(versionHistory[0].getId());
+        assertTrue(Arrays.equals(output, files.get(1)));
+
+        output = mgr.getVersionContent(versionHistory[1].getId());
+        assertTrue(Arrays.equals(output, files.get(0)));
     }
 
     public void testInit() {

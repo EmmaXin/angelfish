@@ -157,6 +157,23 @@ class BackupService {
                     this.versionHistoryCache.add(documentMeta);
                 }
             }
+
+            // sort
+            Collections.sort(this.versionHistoryCache.getHistoryList(), new Comparator<DocumentMeta>() {
+                @Override
+                public int compare(DocumentMeta m1, DocumentMeta m2) {
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+
+                    try {
+                        Date m1_date = dateFormat.parse(m1.getModified());
+                        Date m2_date = dateFormat.parse(m2.getModified());
+
+                        return (m1_date.before(m2_date) == true) ? 1 : -1;
+                    } catch (ParseException e) {
+                        return 0;
+                    }
+                }
+            });
         //} catch (JSONException e) {
         //    ;
         //}

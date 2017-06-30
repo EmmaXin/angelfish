@@ -1,7 +1,11 @@
 package com.accton.common.store;
 
 import com.accton.common.store.impl.FilePersistentStoreDriver;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -502,5 +506,63 @@ public class PersistentStoreDriverDriverManagerTest
 
         byte[] currentOuput = mgr2.getCurrentVersionContent();
         assertTrue(Arrays.equals(currentOuput, value));
+    }
+
+    public JsonNode getNetworkConfig(PersistentStoreManager persistentStoreManager, String id) {
+        ObjectMapper mapper = new ObjectMapper();
+        DocumentMeta[] documentMetas = persistentStoreManager.getAllVersions("network.current");
+
+        try {
+            for (DocumentMeta meta : documentMetas) {
+                if (meta.getId().equals(id)) {
+                    ObjectNode el = JsonNodeFactory.instance.objectNode();
+                    el.put("id", meta.getId());
+                    el.put("modifiedBy", meta.getModifiedBy());
+                    el.put("modified", meta.getModified());
+//                    el.put("description", meta.getDescription())
+
+                    byte[] output = persistentStoreManager.getVersionContent(meta.getId());
+                    JsonNode networkCfg = mapper.readTree(output);
+                    el.put("networkCfg", networkCfg);
+
+                    return el;
+                }
+            }
+        } catch (IOException e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    public void testResp() {
+        PersistentStoreDriver filePersistentStoreDriver = (FilePersistentStoreDriver)createObject("com.accton.common.store.impl.FilePersistentStoreDriver", this.cwd);
+        if (filePersistentStoreDriver == null) {
+            fail();
+        }
+
+        PersistentStoreManager persistentStoreManager = new PersistentStoreManager("network", filePersistentStoreDriver);
+
+        byte[] value = "{\"hello\": \"world\"}".getBytes();
+
+        try {
+            persistentStoreManager.save(value);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+            fail();
+        }
+
+        ObjectNode payload =JsonNodeFactory.instance.objectNode();
+        payload.put("id", persistentStoreManager.getCurrentVersionId());
+
+        JsonNode id = payload.get("id");
+        ObjectNode data = JsonNodeFactory.instance.objectNode();
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode networkConfig = getNetworkConfig(persistentStoreManager, id.asText());
+
+        if (networkConfig != null) {
+            data.put(id.asText(), networkConfig);
+        }
     }
 }
